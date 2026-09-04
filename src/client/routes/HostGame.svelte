@@ -5,6 +5,7 @@
     Eye,
     Maximize2,
     Minimize2,
+    Pause,
     Play,
     Square,
     Trophy,
@@ -15,8 +16,11 @@
   import Backdrop from '../lib/components/Backdrop.svelte';
   import AnswerOption from '../lib/components/AnswerOption.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import Credit from '../lib/components/Credit.svelte';
   import DistributionChart from '../lib/components/DistributionChart.svelte';
   import Leaderboard from '../lib/components/Leaderboard.svelte';
+  import ReviewMatrix from '../lib/components/ReviewMatrix.svelte';
+  import RoundAnswers from '../lib/components/RoundAnswers.svelte';
   import NoticeBar from '../lib/components/NoticeBar.svelte';
   import QrCode from '../lib/components/QrCode.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
@@ -31,6 +35,7 @@
 
   let loading = $state(true);
   let fullscreen = $state(false);
+  let nowTick = $state(Date.now());
 
   const room = $derived(hostGame.roomState);
   const phase = $derived<GamePhase>(room?.phase ?? 'LOBBY');
@@ -71,9 +76,29 @@
     FINISHED: 'Beendet',
   };
 
+  // Countdown bis zum naechsten automatischen Schritt.
+  const autoMsLeft = $derived.by(() => {
+    const at = room?.pendingAtMs;
+    if (!at) return null;
+    return Math.max(0, at - (nowTick + hostGame.serverOffsetMs));
+  });
+  const autoLabel: Record<string, string> = {
+    reveal: 'Auflösung',
+    next: 'Weiter',
+    finish: 'Abschluss',
+  };
+
+  /** Position der laufenden Runde innerhalb der geladenen Auswertung. */
+  const detailSlot = $derived.by(() => {
+    const review = hostGame.review;
+    if (!review || !question) return -1;
+    return review.rounds.findIndex((round) => round.index === question.index);
+  });
+
   const canStart = $derived(phase === 'LOBBY' && !hostGame.busy);
   const canReveal = $derived((phase === 'QUESTION' || phase === 'LOCKED') && !hostGame.busy);
-  const canLeaderboard = $derived(phase !== 'LOBBY' && !hostGame.busy);
+  // Auf der Endkarte steht die Rangliste bereits -- der Button waere dort wirkungslos.
+  const canLeaderboard = $derived(phase !== 'LOBBY' && phase !== 'FINISHED' && !hostGame.busy);
   const canNext = $derived(phase !== 'LOBBY' && phase !== 'FINISHED' && !hostGame.busy);
   const canEnd = $derived(phase !== 'FINISHED' && !hostGame.busy);
   const isLastRound = $derived((room?.roundIndex ?? -1) + 1 >= (room?.totalRounds ?? 0));
@@ -130,6 +155,11 @@
       await hostGame.joinRoom(code);
       loading = false;
     })();
+  });
+
+  $effect(() => {
+    const handle = setInterval(() => (nowTick = Date.now()), 250);
+    return () => clearInterval(handle);
   });
 
   $effect(() => {
@@ -219,6 +249,7 @@
             <QrCode value={joinUrl} size={230} />
           {/if}
           <p class="qr-caption label-mono">QR scannen oder Code eingeben</p>
+          <Credit compact align="center" />
         </div>
       </section>
 
@@ -289,23 +320,67 @@
             <span class="label-mono">Erklärung</span>
             <p>{reveal.explanation}</p>
           </div>
+
+          <div class="detail-card panel">
+            {#if hostGame.roundDetailVisible && hostGame.review && detailSlot >= 0}
+              <RoundAnswers
+                round={hostGame.review.rounds[detailSlot]}
+                players={hostGame.review.players}
+                slot={detailSlot}
+              />
+            {:else if hostGame.roundDetailVisible}
+              <p class="label-mono">Antworten werden geladen …</p>
+            {:else}
+              <button type="button" class="btn full" onclick={() => hostGame.showRoundDetail()}>
+                <Eye size={16} strokeWidth={2.4} />
+                Wer hat was geantwortet?
+              </button>
+            {/if}
+          </div>
         </aside>
       </section>
-    {:else if phase === 'LEADERBOARD' || phase === 'FINISHED'}
+    {:else if phase === 'LEADERBOARD'}
       <section class="board">
         <div class="board-head">
           <Trophy size={30} strokeWidth={2.2} />
           <div>
-            <p class="label-mono">{phase === 'FINISHED' ? 'Endstand' : `Nach Runde ${(room.roundIndex ?? 0) + 1}`}</p>
-            <h1 class="headline hero-title small">{phase === 'FINISHED' ? 'Finale Rangliste' : 'Rangliste'}</h1>
+            <p class="label-mono">Nach Runde {(room.roundIndex ?? 0) + 1}</p>
+            <h1 class="headline hero-title small">Rangliste</h1>
           </div>
         </div>
         <Leaderboard entries={hostGame.leaderboard} />
-        {#if phase === 'FINISHED'}
+      </section>
+    {:else if phase === 'FINISHED'}
+      <section class="endcard">
+        <div class="end-head">
+          <Trophy size={30} strokeWidth={2.2} />
+          <div>
+            <p class="label-mono">Endstand &middot; Raum {room.code}</p>
+            <h1 class="headline hero-title small">Finale Rangliste</h1>
+          </div>
           <button type="button" class="btn btn-primary new-game" onclick={() => navigate('/host')}>
             Neues Quiz erstellen
           </button>
-        {/if}
+        </div>
+
+        <div class="end-grid">
+          <div class="end-board">
+            <Leaderboard entries={hostGame.leaderboard} />
+          </div>
+
+          <div class="end-review panel">
+            {#if hostGame.reviewLoading && !hostGame.review}
+              <p class="label-mono">Auswertung wird geladen …</p>
+            {:else if hostGame.review}
+              <ReviewMatrix review={hostGame.review} />
+            {:else}
+              <div class="review-fallback">
+                <p class="label-mono">Auswertung nicht geladen</p>
+                <button type="button" class="btn" onclick={() => hostGame.loadReview()}>Erneut versuchen</button>
+              </div>
+            {/if}
+          </div>
+        </div>
       </section>
     {:else}
       <section class="center">
@@ -335,6 +410,20 @@
         <span class="label-mono">Code</span>
         <strong class="mono">{room?.code ?? code}</strong>
       </div>
+      {#if room?.config.autoAdvance}
+        <div class="stat">
+          <span class="label-mono">Automatik</span>
+          {#if room.autoPaused}
+            <strong class="auto-paused">angehalten</strong>
+          {:else if autoMsLeft !== null && room.pendingAction}
+            <strong class="auto-run tabular">
+              {autoLabel[room.pendingAction]} in {Math.ceil(autoMsLeft / 1000)}s
+            </strong>
+          {:else}
+            <strong class="auto-run">aktiv</strong>
+          {/if}
+        </div>
+      {/if}
     </div>
 
     <div class="buttons">
@@ -351,6 +440,20 @@
         <ChevronRight size={18} strokeWidth={2.6} />
         {isLastRound && phase !== 'LOBBY' ? 'Abschluss' : 'Next'}
       </button>
+      {#if room?.config.autoAdvance && phase !== 'FINISHED'}
+        <button
+          type="button"
+          class="btn"
+          onclick={() => hostGame.setAutoPaused(!room.autoPaused)}
+          aria-pressed={room.autoPaused}
+        >
+          {#if room.autoPaused}
+            <Play size={18} strokeWidth={2.6} /> Automatik fortsetzen
+          {:else}
+            <Pause size={18} strokeWidth={2.6} /> Automatik anhalten
+          {/if}
+        </button>
+      {/if}
       <button type="button" class="btn btn-danger" disabled={!canEnd} onclick={() => hostGame.endGame()}>
         <Square size={16} strokeWidth={2.6} /> End Game
       </button>
@@ -652,6 +755,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    min-height: 0;
+    overflow-y: auto;
     opacity: 0;
     transform: translateY(10px);
     transition:
@@ -665,8 +770,19 @@
   }
 
   .solution-card,
-  .explain-card {
+  .explain-card,
+  .detail-card {
     padding: 1rem 1.15rem;
+  }
+
+  .detail-card {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .detail-card .full {
+    width: 100%;
   }
 
   .solution-card {
@@ -734,6 +850,74 @@
     align-self: flex-start;
   }
 
+  /* ----------------------------------------------------------- Endkarte */
+
+  .endcard {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    min-height: 0;
+    animation: var(--animate-rise);
+  }
+
+  .end-head {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    color: #fcd34d;
+  }
+
+  .end-head h1 {
+    color: var(--color-ink);
+  }
+
+  .end-head .new-game {
+    margin-left: auto;
+    align-self: center;
+  }
+
+  .end-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.9rem;
+    min-height: 0;
+  }
+
+  .end-board {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .end-review {
+    padding: 0.9rem 1rem;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .review-fallback {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    align-items: flex-start;
+  }
+
+  .auto-run {
+    color: var(--color-brand);
+  }
+
+  .auto-paused {
+    color: #fbbf24;
+  }
+
+  @media (min-width: 1100px) {
+    .end-grid {
+      grid-template-columns: minmax(20rem, 0.8fr) 1.2fr;
+    }
+  }
+
   /* --------------------------------------------------------- Controls */
 
   .controls {
@@ -798,7 +982,7 @@
     }
 
     .stats {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
     }
 
     .controls {

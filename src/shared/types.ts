@@ -60,7 +60,21 @@ export interface GameConfig {
   questionCount: number;
   randomizeQuestions: boolean;
   timerPreset: TimerPreset;
+  /**
+   * Automatisch aufloesen und weiterschalten, sobald eine Frage endet.
+   * Der Host kann trotzdem jederzeit manuell eingreifen -- jede Aktion
+   * verwirft einen anstehenden automatischen Schritt.
+   */
+  autoAdvance: boolean;
+  /**
+   * Nach dem Reveal sofort zeigen, wer was geantwortet hat.
+   * `false` = der Host blendet die Details bei Bedarf selbst ein.
+   */
+  autoRevealAnswers: boolean;
 }
+
+/** Was der Server als Naechstes von selbst tun wird. */
+export type PendingAction = 'reveal' | 'next' | 'finish';
 
 export interface PlayerPublic {
   id: string;
@@ -103,6 +117,12 @@ export interface RoomState {
   /** Nur gesetzt, solange die Frage läuft. */
   serverTimeMs: number;
   deadlineMs: number | null;
+  /** Automatik vom Host angehalten. */
+  autoPaused: boolean;
+  /** Anstehender automatischer Schritt, sonst null. */
+  pendingAction: PendingAction | null;
+  /** Serverzeit, zu der der anstehende Schritt ausgeloest wird. */
+  pendingAtMs: number | null;
 }
 
 export interface PersonalRoundResult {
@@ -162,3 +182,58 @@ export interface SocketError {
 }
 
 export type Ack<T> = (result: { ok: true; data: T } | { ok: false; error: SocketError }) => void;
+
+// ------------------------------------------------------------- Auswertung
+
+/** Antwort einer Person in einer Runde -- fuer die Nachbesprechung. */
+export interface ReviewAnswer {
+  /** Angezeigter Buchstabe dieser Runde, null = keine Antwort abgegeben. */
+  answer: AnswerId | null;
+  correct: boolean;
+  points: number;
+  /** Antwortzeit in Millisekunden ab Rundenstart, null wenn nicht geantwortet. */
+  elapsedMs: number | null;
+}
+
+export interface ReviewRound {
+  index: number;
+  questionId: string;
+  category: string;
+  difficulty: Difficulty;
+  question: string;
+  /** Optionen in der Reihenfolge, wie sie in dieser Runde angezeigt wurden. */
+  answers: QuizAnswer[];
+  correctAnswer: AnswerId;
+  explanation: string;
+  distribution: AnswerDistributionEntry[];
+  answeredCount: number;
+  correctCount: number;
+  /** Wie lange die Frage lief. */
+  durationMs: number;
+  /** Mittlere Antwortzeit der abgegebenen Antworten, null ohne Antworten. */
+  averageElapsedMs: number | null;
+  /** Schnellste richtige Antwort dieser Runde. */
+  fastestCorrect: { nickname: string; elapsedMs: number } | null;
+}
+
+export interface ReviewPlayer {
+  playerId: string;
+  nickname: string;
+  score: number;
+  streak: number;
+  correctCount: number;
+  answeredCount: number;
+  /** Mittlere Antwortzeit ueber alle abgegebenen Antworten, null wenn keine. */
+  averageElapsedMs: number | null;
+  /** Eine Position je gespielter Runde. */
+  answers: ReviewAnswer[];
+}
+
+export interface GameReview {
+  code: string;
+  totalRounds: number;
+  /** Bereits aufgeloeste Runden -- nur diese sind auswertbar. */
+  playedRounds: number;
+  rounds: ReviewRound[];
+  players: ReviewPlayer[];
+}

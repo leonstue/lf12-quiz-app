@@ -8,6 +8,8 @@ dist/
 
 # Umgebung -- enthaelt HOST_SECRET und die Domain
 .env
+# Von "make up" erzeugte Klartextdatei mit dem Host-Passwort
+.pw
 .env.local
 .env.*.local
 

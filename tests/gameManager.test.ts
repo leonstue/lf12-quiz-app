@@ -26,7 +26,7 @@ describe('GameManager', () => {
     const manager = makeManager({ maxRooms: 40 });
     const codes = new Set<string>();
     for (let i = 0; i < 30; i += 1) {
-      const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+      const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
       expect(codes.has(room.code)).toBe(false);
       codes.add(room.code);
     }
@@ -35,7 +35,7 @@ describe('GameManager', () => {
 
   it('findet Räume unabhängig von der Schreibweise', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
     expect(manager.getRoom(room.code)?.code).toBe(room.code);
     expect(manager.getRoom(room.code.toLowerCase())?.code).toBe(room.code);
     expect(manager.getRoom(` ${room.code} `)?.code).toBe(room.code);
@@ -47,16 +47,16 @@ describe('GameManager', () => {
 
   it('begrenzt die Anzahl gleichzeitiger Räume', () => {
     const manager = makeManager({ maxRooms: 2 });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
     expect(() =>
-      manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' }),
+      manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false }),
     ).toThrow();
   });
 
   it('schließt Räume und entfernt sie aus der Verwaltung', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
     expect(manager.closeRoom(room.code)).toBe(true);
     expect(manager.getRoom(room.code)).toBeUndefined();
     expect(manager.closeRoom(room.code)).toBe(false);
@@ -64,14 +64,14 @@ describe('GameManager', () => {
 
   it('räumt inaktive Räume auf', () => {
     const manager = makeManager({ roomTtlMs: -1 });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
     expect(manager.sweep()).toBe(1);
     expect(manager.size).toBe(0);
   });
 
   it('listet aktive Räume auf', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard' });
+    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
     const list = manager.listRooms();
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ code: room.code, phase: 'LOBBY', players: 0, rounds: 5 });

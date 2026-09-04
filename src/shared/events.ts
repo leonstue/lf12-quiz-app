@@ -3,6 +3,7 @@ import type {
   Ack,
   AnswerId,
   GameConfig,
+  GameReview,
   JoinSuccess,
   LeaderboardEntry,
   PersonalRoundResult,
@@ -111,6 +112,8 @@ export interface ClientToServerEvents {
   host_show_leaderboard: (payload: HostRoomPayload, ack: Ack<{ shown: true }>) => void;
   host_end_game: (payload: HostRoomPayload, ack: Ack<{ ended: true }>) => void;
   host_kick_player: (payload: HostRoomPayload & { playerId: string }, ack: Ack<{ kicked: true }>) => void;
+  host_set_auto: (payload: HostRoomPayload & { paused: boolean }, ack: Ack<{ autoPaused: boolean }>) => void;
+  host_get_review: (payload: HostRoomPayload, ack: Ack<GameReview>) => void;
 }
 
 export interface InterServerEvents {

@@ -3,6 +3,7 @@
 
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import Credit from '../lib/components/Credit.svelte';
   import NoticeBar from '../lib/components/NoticeBar.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
@@ -155,6 +156,8 @@
         Laufende Sitzung als „{savedSession.nickname}“ fortsetzen
       </button>
     {/if}
+
+    <Credit align="center" />
   </main>
 </div>
 

@@ -3,6 +3,7 @@
 
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import Credit from '../lib/components/Credit.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import { navigate } from '../lib/router.svelte.js';
 
@@ -59,12 +60,15 @@
     </ul>
   </main>
 
-  <footer class="foot label-mono">
-    <span>30 Fragen im Pool</span>
-    <span class="dot">&bull;</span>
-    <span>In-Memory Sessions</span>
-    <span class="dot">&bull;</span>
-    <span>Keine Registrierung</span>
+  <footer class="foot">
+    <div class="foot-meta label-mono">
+      <span>30 Fragen im Pool</span>
+      <span class="dot">&bull;</span>
+      <span>In-Memory Sessions</span>
+      <span class="dot">&bull;</span>
+      <span>Keine Registrierung</span>
+    </div>
+    <Credit />
   </footer>
 </div>
 
@@ -168,9 +172,17 @@
   .foot {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     padding-top: 1rem;
     border-top: 1px solid var(--color-line);
+  }
+
+  .foot-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .dot {

@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowRight, KeyRound, LogOut, Play, Shuffle } from '@lucide/svelte';
+  import { ArrowLeft, ArrowRight, Eye, KeyRound, LogOut, Play, Shuffle, Timer as TimerIcon } from '@lucide/svelte';
 
   import { QUESTION_COUNT_OPTIONS, type GameConfig, type TimerPreset } from '../../shared/types.js';
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import Credit from '../lib/components/Credit.svelte';
   import NoticeBar from '../lib/components/NoticeBar.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
@@ -16,6 +17,8 @@
 
   let questionCount = $state<number>(12);
   let randomizeQuestions = $state(false);
+  let autoAdvance = $state(false);
+  let autoRevealAnswers = $state(false);
   let timerPreset = $state<TimerPreset>('standard');
   let creating = $state(false);
   let rejoinCode = $state('');
@@ -44,7 +47,13 @@
   async function createGame(): Promise<void> {
     if (creating) return;
     creating = true;
-    const config: GameConfig = { questionCount, randomizeQuestions, timerPreset };
+    const config: GameConfig = {
+      questionCount,
+      randomizeQuestions,
+      timerPreset,
+      autoAdvance,
+      autoRevealAnswers,
+    };
     const code = await hostGame.createGame(config);
     creating = false;
     if (code) navigate(`/host/game/${code}`);
@@ -175,6 +184,42 @@
           </span>
         </button>
 
+        <button
+          type="button"
+          class="toggle"
+          role="switch"
+          aria-checked={autoAdvance}
+          onclick={() => (autoAdvance = !autoAdvance)}
+        >
+          <span class="switch" class:on={autoAdvance}><span class="knob"></span></span>
+          <span class="toggle-text">
+            <span class="toggle-title"><TimerIcon size={15} strokeWidth={2.4} /> Automatisch weiterschalten</span>
+            <span class="hint">
+              {autoAdvance
+                ? 'Nach Ablauf der Zeit wird selbst aufgelöst und nach 10 s die nächste Frage gestartet. Du kannst jederzeit eingreifen oder pausieren.'
+                : 'Du steuerst jeden Schritt selbst über Start, Reveal und Next.'}
+            </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="toggle"
+          role="switch"
+          aria-checked={autoRevealAnswers}
+          onclick={() => (autoRevealAnswers = !autoRevealAnswers)}
+        >
+          <span class="switch" class:on={autoRevealAnswers}><span class="knob"></span></span>
+          <span class="toggle-text">
+            <span class="toggle-title"><Eye size={15} strokeWidth={2.4} /> Antwortdetails automatisch zeigen</span>
+            <span class="hint">
+              {autoRevealAnswers
+                ? 'Direkt nach der Auflösung erscheint, wer was geantwortet hat und wie schnell.'
+                : 'Die Details bleiben verborgen, bis du sie auf dem Auflösungs-Screen einblendest.'}
+            </span>
+          </span>
+        </button>
+
         <button type="button" class="btn btn-primary full big" onclick={createGame} disabled={creating}>
           <Play size={20} strokeWidth={2.6} />
           {creating ? 'Erstelle …' : 'Quiz erstellen'}
@@ -203,6 +248,8 @@
         </form>
       </section>
     {/if}
+
+    <Credit align="center" />
   </main>
 </div>
 

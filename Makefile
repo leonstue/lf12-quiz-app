@@ -13,6 +13,7 @@ SHELL := /bin/bash
 COMPOSE  := docker compose
 ENV_FILE := .env
 ENV_EXAMPLE := .env.example
+PW_FILE := .pw
 LE_VOLUME := sequence-challenge-letsencrypt
 
 .PHONY: help up down restart logs ps build update clean reset env status secret url check-tools doctor
@@ -98,7 +99,11 @@ env: check-tools
 	        echo ""; \
 	        exit 1; \
 	fi
-	@echo ">> Konfiguration ok."
+	DOMAIN_NOW=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+	SECRET_NOW=$$(grep -E '^HOST_SECRET=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+	printf '%s\n' "Sequence Challenge -- Host-Zugang" "" "Host-Ansicht : https://$$DOMAIN_NOW/host" "Passwort     : $$SECRET_NOW" "" "Diese Datei erzeugt 'make up'. Sie liegt NICHT im Git." "Passwort aendern: HOST_SECRET in .env setzen, dann 'make up'." > "$(PW_FILE)"
+	chmod 600 "$(PW_FILE)" 2>/dev/null || true
+	@echo ">> Konfiguration ok. Host-Passwort steht in $(PW_FILE) (und in $(ENV_FILE))."
 
 ## up: Stack bauen und starten
 up: env

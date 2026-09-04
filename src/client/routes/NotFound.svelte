@@ -1,6 +1,7 @@
 <script lang="ts">
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import Credit from '../lib/components/Credit.svelte';
   import { navigate } from '../lib/router.svelte.js';
 </script>
 
@@ -17,6 +18,7 @@
       <button type="button" class="btn" onclick={() => navigate('/join')}>Quiz beitreten</button>
     </div>
   </div>
+  <Credit />
 </div>
 
 <style>

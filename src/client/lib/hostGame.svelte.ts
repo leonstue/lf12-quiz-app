@@ -1,5 +1,12 @@
 import type { GameFinishedPayload, LeaderboardPayload } from '../../shared/events.js';
-import type { GameConfig, LeaderboardEntry, PublicQuestion, RevealPayload, RoomState } from '../../shared/types.js';
+import type {
+  GameConfig,
+  GameReview,
+  LeaderboardEntry,
+  PublicQuestion,
+  RevealPayload,
+  RoomState,
+} from '../../shared/types.js';
 import { GameClock } from './clock.svelte.js';
 import { getSocket, request } from './socket.js';
 import { sound } from './sound.svelte.js';
@@ -18,6 +25,13 @@ class HostGame {
   leaderboardFinal = $state(false);
   notice = $state<string | null>(null);
   busy = $state(false);
+  /** Auswertung am Spielende -- wer hat wann was geantwortet. */
+  review = $state<GameReview | null>(null);
+  reviewLoading = $state(false);
+  /** Rundendetails ("wer hat was geantwortet") auf dem Reveal-Screen sichtbar. */
+  roundDetailVisible = $state(false);
+  /** Serverzeit minus lokale Zeit -- fuer den Countdown der Automatik. */
+  serverOffsetMs = $state(0);
 
   readonly clock = new GameClock();
 
@@ -47,6 +61,7 @@ class HostGame {
 
     socket.on('room_state', (state) => {
       this.roomState = state;
+      this.serverOffsetMs = state.serverTimeMs - Date.now();
       this.question = state.question;
       if (state.phase !== 'QUESTION') {
         this.clock.stop();
@@ -56,6 +71,7 @@ class HostGame {
         this.reveal = null;
         this.leaderboard = [];
         this.leaderboardFinal = false;
+        this.review = null;
       }
     });
 
@@ -63,6 +79,7 @@ class HostGame {
       this.question = question;
       this.reveal = null;
       this.revealHighlight = false;
+      this.roundDetailVisible = false;
       this.clock.sync(serverTimeMs, deadlineMs, question.durationSeconds * 1000);
       sound.play('question');
       this.startTicker();
@@ -94,6 +111,13 @@ class HostGame {
       this.highlightHandle = setTimeout(() => {
         this.revealHighlight = true;
       }, 1400);
+
+      // Details sofort holen oder auf den Host warten -- je nach Konfiguration.
+      if (this.roomState?.config.autoRevealAnswers) {
+        void this.showRoundDetail();
+      } else {
+        this.roundDetailVisible = false;
+      }
     });
 
     socket.on('leaderboard', (payload: LeaderboardPayload) => {
@@ -108,6 +132,8 @@ class HostGame {
       this.clock.stop();
       this.stopTicker();
       sound.play('finish');
+      // Auswertung direkt nachladen, damit die Endkarte vollstaendig ist.
+      void this.loadReview();
     });
 
     socket.on('player_joined', () => {
@@ -237,6 +263,29 @@ class HostGame {
 
   kick(playerId: string): Promise<boolean> {
     return this.command<{ kicked: true }>('host_kick_player', { playerId });
+  }
+
+  /** Automatik anhalten oder fortsetzen. */
+  setAutoPaused(paused: boolean): Promise<boolean> {
+    return this.command<{ autoPaused: boolean }>('host_set_auto', { paused });
+  }
+
+  /** Blendet die Rundendetails ein und laedt sie bei Bedarf nach. */
+  async showRoundDetail(): Promise<void> {
+    this.roundDetailVisible = true;
+    await this.loadReview();
+  }
+
+  async loadReview(): Promise<void> {
+    if (!this.hostToken || !this.code) return;
+    this.reviewLoading = true;
+    const result = await request<GameReview>('host_get_review', { hostToken: this.hostToken, code: this.code });
+    this.reviewLoading = false;
+    if (result.ok) {
+      this.review = result.data;
+    } else if (result.error.code === 'UNAUTHORIZED') {
+      this.logout();
+    }
   }
 
   dismissNotice(): void {

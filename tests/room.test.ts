@@ -1,82 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { Room, normalizeConfig, type RoomEmitter } from '../src/server/game/Room.js';
+import { Room, normalizeConfig } from '../src/server/game/Room.js';
 import { QUESTIONS } from '../src/shared/questions.js';
-import { ANSWER_IDS, type AnswerId, type GameConfig } from '../src/shared/types.js';
+import { ANSWER_IDS, type AnswerId } from '../src/shared/types.js';
+import {
+  correctDisplayId,
+  createEmitter,
+  createRoomFactory,
+  currentQuestionPayload,
+  wrongDisplayId,
+} from './helpers.js';
 
-interface Emitted {
-  target: string;
-  event: string;
-  payload: unknown;
-}
-
-function createEmitter(): { emitter: RoomEmitter; events: Emitted[] } {
-  const events: Emitted[] = [];
-  return {
-    events,
-    emitter: {
-      toRoom(code, event, payload) {
-        events.push({ target: `room:${code}`, event, payload });
-      },
-      toPlayer(playerId, event, payload) {
-        events.push({ target: `player:${playerId}`, event, payload });
-      },
-    },
-  };
-}
-
-class Clock {
-  constructor(public value = 1_000_000) {}
-  now = (): number => this.value;
-  advance(ms: number): void {
-    this.value += ms;
-  }
-}
-
-let rooms: Room[] = [];
-
-function makeRoom(config: Partial<GameConfig> = {}, clock = new Clock()) {
-  const { emitter, events } = createEmitter();
-  const room = new Room({
-    code: 'TEST01',
-    config: normalizeConfig({ questionCount: 3, randomizeQuestions: false, timerPreset: 'standard', ...config }),
-    emitter,
-    now: clock.now,
-    answerGraceMs: 500,
-  });
-  rooms.push(room);
-  return { room, events, clock };
-}
-
-/** Findet die aktuell korrekte Anzeige-Antwort über das Reveal-Event. */
-function currentQuestionPayload(events: Emitted[]) {
-  const started = [...events].reverse().find((entry) => entry.event === 'question_started');
-  return started?.payload as { question: { index: number; answers: { id: AnswerId; text: string }[] } };
-}
-
-function correctDisplayId(room: Room, events: Emitted[]): AnswerId {
-  const payload = currentQuestionPayload(events);
-  const original = QUESTIONS.find(
-    (question) => question.question === (room.getState().question?.question ?? ''),
-  );
-  if (!original) throw new Error('Frage nicht gefunden');
-  const correctText = original.answers.find((answer) => answer.id === original.correctAnswer)?.text;
-  const match = payload.question.answers.find((answer) => answer.text === correctText);
-  if (!match) throw new Error('Korrekte Antwort nicht gefunden');
-  return match.id;
-}
-
-function wrongDisplayId(correct: AnswerId): AnswerId {
-  return ANSWER_IDS.find((id) => id !== correct) as AnswerId;
-}
+const factory = createRoomFactory();
+const makeRoom = factory.makeRoom;
 
 beforeEach(() => {
-  rooms = [];
+  factory.destroyAll();
 });
 
 afterEach(() => {
-  for (const room of rooms) room.destroy();
-  rooms = [];
+  factory.destroyAll();
 });
 
 describe('Beitritt und Nicknames', () => {
@@ -133,7 +76,7 @@ describe('Beitritt und Nicknames', () => {
   it('respektiert die maximale Teilnehmerzahl', () => {
     const { emitter } = createEmitter();
     const room = new Room({ code: 'FULL01', config: normalizeConfig({}), emitter, maxPlayers: 2 });
-    rooms.push(room);
+    factory.track(room);
     expect(room.addPlayer('A1').ok).toBe(true);
     expect(room.addPlayer('B2').ok).toBe(true);
     const third = room.addPlayer('C3');
@@ -564,24 +507,40 @@ describe('normalizeConfig', () => {
       questionCount: 12,
       randomizeQuestions: false,
       timerPreset: 'standard',
+      autoAdvance: false,
+      autoRevealAnswers: false,
     });
   });
 
   it('begrenzt und säubert manipulierte Werte', () => {
-    expect(normalizeConfig({ questionCount: 9999, randomizeQuestions: 'ja', timerPreset: 'turbo' })).toEqual({
+    expect(
+      normalizeConfig({ questionCount: 9999, randomizeQuestions: 'ja', timerPreset: 'turbo', autoAdvance: 'ja' }),
+    ).toEqual({
       questionCount: 30,
       randomizeQuestions: false,
       timerPreset: 'standard',
+      autoAdvance: false,
+      autoRevealAnswers: false,
     });
     expect(normalizeConfig({ questionCount: -5 }).questionCount).toBe(1);
     expect(normalizeConfig({ questionCount: Number.NaN }).questionCount).toBe(12);
   });
 
   it('übernimmt gültige Werte', () => {
-    expect(normalizeConfig({ questionCount: 15, randomizeQuestions: true, timerPreset: 'fast' })).toEqual({
+    expect(
+      normalizeConfig({
+        questionCount: 15,
+        randomizeQuestions: true,
+        timerPreset: 'fast',
+        autoAdvance: true,
+        autoRevealAnswers: true,
+      }),
+    ).toEqual({
       questionCount: 15,
       randomizeQuestions: true,
       timerPreset: 'fast',
+      autoAdvance: true,
+      autoRevealAnswers: true,
     });
   });
 });

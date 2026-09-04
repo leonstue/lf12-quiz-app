@@ -321,6 +321,17 @@ export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): S
     socket.on('host_show_leaderboard', (payload, ack) => hostCommand(payload, ack, (room) => room.showLeaderboard()));
     socket.on('host_end_game', (payload, ack) => hostCommand(payload, ack, (room) => room.end()));
 
+    socket.on('host_set_auto', (payload, ack) => {
+      hostCommand(payload, ack, (room) => {
+        const data = (payload ?? {}) as { paused?: unknown };
+        return room.setAutoPaused(data.paused === true);
+      });
+    });
+
+    socket.on('host_get_review', (payload, ack) => {
+      hostCommand(payload, ack, (room) => ({ ok: true as const, data: room.buildReview() }));
+    });
+
     socket.on('host_kick_player', (payload, ack) => {
       hostCommand(payload, ack, (room) => {
         const data = (payload ?? {}) as { playerId?: unknown };

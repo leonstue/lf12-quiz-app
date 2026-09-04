@@ -5,12 +5,17 @@ import type {
   AnswerId,
   GameConfig,
   GamePhase,
+  GameReview,
   LeaderboardEntry,
+  PendingAction,
   PersonalRoundResult,
   PlayerPublic,
   PublicQuestion,
   QuizAnswer,
   QuizQuestion,
+  ReviewAnswer,
+  ReviewPlayer,
+  ReviewRound,
   RoomState,
   SocketError,
 } from '../../shared/types.js';
@@ -21,6 +26,11 @@ import { selectQuestions, shuffle } from './questionSelection.js';
 import { calculateScore } from './scoring.js';
 
 const log = createLogger('room');
+
+/** Pause zwischen Rundenende und automatischer Aufloesung. */
+export const AUTO_REVEAL_DELAY_MS = 1_500;
+/** Lesezeit fuer Verteilung und Erklaerung, bevor automatisch weitergeschaltet wird. */
+export const AUTO_NEXT_DELAY_MS = 10_000;
 
 export type RoomResult<T> = { ok: true; data: T } | { ok: false; error: SocketError };
 
@@ -82,6 +92,8 @@ export interface RoomOptions {
   now?: () => number;
   /** Alternativer Fragenpool (Tests). */
   pool?: readonly QuizQuestion[];
+  autoRevealDelayMs?: number;
+  autoNextDelayMs?: number;
 }
 
 export class Room {
@@ -112,6 +124,13 @@ export class Room {
 
   private tickHandle: ReturnType<typeof setInterval> | null = null;
 
+  /** Automatik voruebergehend vom Host angehalten. */
+  private autoPaused = false;
+  private autoHandle: ReturnType<typeof setTimeout> | null = null;
+  private pending: { action: PendingAction; atMs: number } | null = null;
+  private readonly autoRevealDelayMs: number;
+  private readonly autoNextDelayMs: number;
+
   constructor(options: RoomOptions) {
     this.code = options.code;
     this.emitter = options.emitter;
@@ -120,6 +139,8 @@ export class Room {
     this.answerGraceMs = options.answerGraceMs ?? 750;
     this.now = options.now ?? (() => Date.now());
     this.pool = options.pool;
+    this.autoRevealDelayMs = options.autoRevealDelayMs ?? AUTO_REVEAL_DELAY_MS;
+    this.autoNextDelayMs = options.autoNextDelayMs ?? AUTO_NEXT_DELAY_MS;
     this.config = normalizeConfig(options.config, options.pool?.length);
     this.createdAt = this.now();
     this.lastActivity = this.createdAt;
@@ -246,6 +267,7 @@ export class Room {
   // -------------------------------------------------------------- Spielablauf
 
   start(): RoomResult<{ started: true }> {
+    this.cancelAuto();
     if (this.phase !== 'LOBBY') {
       return fail('INVALID_STATE', 'Das Quiz wurde bereits gestartet.');
     }
@@ -265,11 +287,14 @@ export class Room {
     this.stopTicker();
     this.phase = 'LOCKED';
     this.emitter.toRoom(this.code, 'question_locked', { roundIndex: this.roundIndex });
+    // Im Automatikbetrieb kurz warten, damit der Wechsel nicht abrupt wirkt.
+    this.scheduleAuto('reveal', this.autoRevealDelayMs);
     this.broadcastState();
     return { ok: true, data: { locked: true } };
   }
 
   reveal(): RoomResult<{ revealed: true }> {
+    this.cancelAuto();
     const round = this.currentRound;
     if (!round || (this.phase !== 'QUESTION' && this.phase !== 'LOCKED')) {
       return fail('INVALID_STATE', 'In diesem Zustand kann nicht aufgelöst werden.');
@@ -288,12 +313,16 @@ export class Room {
     }
 
     this.touch();
+    // Danach automatisch weiter -- oder abschliessen, wenn es die letzte Runde war.
+    const isLast = round.index + 1 >= this.questions.length;
+    this.scheduleAuto(isLast ? 'finish' : 'next', this.autoNextDelayMs);
     this.broadcastState();
     log.info('Runde aufgelöst', { room: this.code, round: round.index + 1, answers: round.answers.size });
     return { ok: true, data: { revealed: true } };
   }
 
   showLeaderboard(): RoomResult<{ shown: true }> {
+    this.cancelAuto();
     if (this.phase === 'LOBBY') {
       return fail('INVALID_STATE', 'Das Quiz wurde noch nicht gestartet.');
     }
@@ -304,11 +333,16 @@ export class Room {
     this.phase = final ? 'FINISHED' : 'LEADERBOARD';
     this.emitLeaderboard(final);
     this.touch();
+    if (!final) {
+      const isLast = this.roundIndex + 1 >= this.questions.length;
+      this.scheduleAuto(isLast ? 'finish' : 'next', this.autoNextDelayMs);
+    }
     this.broadcastState();
     return { ok: true, data: { shown: true } };
   }
 
   next(): RoomResult<{ finished: boolean }> {
+    this.cancelAuto();
     if (this.phase === 'LOBBY') {
       return fail('INVALID_STATE', 'Bitte zuerst das Quiz starten.');
     }
@@ -332,6 +366,7 @@ export class Room {
   }
 
   end(): RoomResult<{ ended: true }> {
+    this.cancelAuto();
     if (this.phase === 'FINISHED') {
       return { ok: true, data: { ended: true } };
     }
@@ -343,6 +378,7 @@ export class Room {
   }
 
   private finish(): void {
+    this.cancelAuto();
     this.stopTicker();
     this.phase = 'FINISHED';
     const entries = this.buildLeaderboard(10);
@@ -354,6 +390,7 @@ export class Room {
   }
 
   private beginRound(index: number): void {
+    this.cancelAuto();
     this.stopTicker();
 
     const question = this.questions[index];
@@ -645,11 +682,146 @@ export class Room {
       joinUrl: this.joinUrl,
       serverTimeMs: this.now(),
       deadlineMs: this.phase === 'QUESTION' && round ? round.deadlineMs : null,
+      autoPaused: this.autoPaused,
+      pendingAction: this.pending?.action ?? null,
+      pendingAtMs: this.pending?.atMs ?? null,
     };
   }
 
   broadcastState(): void {
     this.emitter.toRoom(this.code, 'room_state', this.getState());
+  }
+
+  // ---------------------------------------------------------------- Automatik
+
+  get isAutoPaused(): boolean {
+    return this.autoPaused;
+  }
+
+  /**
+   * Plant den naechsten automatischen Schritt. Passiert nur, wenn die Automatik
+   * konfiguriert und nicht angehalten ist. Jede manuelle Host-Aktion ruft vorher
+   * {@link cancelAuto} auf und gewinnt damit immer.
+   */
+  private scheduleAuto(action: PendingAction, delayMs: number): void {
+    this.cancelAuto();
+    if (!this.config.autoAdvance || this.autoPaused) return;
+
+    this.pending = { action, atMs: this.now() + delayMs };
+    this.autoHandle = setTimeout(() => {
+      this.autoHandle = null;
+      this.pending = null;
+      log.info('Automatischer Schritt', { room: this.code, action });
+      if (action === 'reveal') this.reveal();
+      else if (action === 'next') this.next();
+      else this.end();
+    }, delayMs);
+    this.autoHandle.unref?.();
+    this.broadcastState();
+  }
+
+  private cancelAuto(): void {
+    if (this.autoHandle) {
+      clearTimeout(this.autoHandle);
+      this.autoHandle = null;
+    }
+    this.pending = null;
+  }
+
+  /** Host haelt die Automatik an oder setzt sie fort. */
+  setAutoPaused(paused: boolean): RoomResult<{ autoPaused: boolean }> {
+    this.autoPaused = paused === true;
+    if (this.autoPaused) {
+      this.cancelAuto();
+      this.broadcastState();
+      return { ok: true, data: { autoPaused: true } };
+    }
+
+    // Fortsetzen: den zum aktuellen Zustand passenden Schritt neu planen.
+    if (this.config.autoAdvance) {
+      if (this.phase === 'LOCKED') {
+        this.scheduleAuto('reveal', this.autoRevealDelayMs);
+      } else if (this.phase === 'REVEAL' || this.phase === 'LEADERBOARD') {
+        const isLast = this.roundIndex + 1 >= this.questions.length;
+        this.scheduleAuto(isLast ? 'finish' : 'next', this.autoNextDelayMs);
+      }
+    }
+    this.broadcastState();
+    return { ok: true, data: { autoPaused: false } };
+  }
+
+  // -------------------------------------------------------------- Auswertung
+
+  /**
+   * Nachbesprechung: wer hat wann was geantwortet.
+   * Enthaelt ausschliesslich bereits aufgeloeste Runden -- eine laufende Frage
+   * darf nicht vorab einsehbar sein.
+   */
+  buildReview(): GameReview {
+    const playedRounds = this.rounds.filter((round) => round && round.revealed);
+
+    const rounds: ReviewRound[] = playedRounds.map((round) => {
+      const elapsed = [...round.answers.values()].map((a) => Math.max(0, a.atMs - round.startedAtMs));
+      const correctSubmissions = [...round.answers.entries()]
+        .filter(([, a]) => a.answer === round.correctDisplayId)
+        .map(([playerId, a]) => ({ playerId, elapsedMs: Math.max(0, a.atMs - round.startedAtMs) }))
+        .sort((a, b) => a.elapsedMs - b.elapsedMs);
+
+      const fastest = correctSubmissions[0];
+      const fastestPlayer = fastest ? this.players.get(fastest.playerId) : undefined;
+
+      return {
+        index: round.index,
+        questionId: round.question.id,
+        category: round.question.category,
+        difficulty: round.question.difficulty,
+        question: round.question.question,
+        answers: round.displayAnswers,
+        correctAnswer: round.correctDisplayId,
+        explanation: round.question.explanation,
+        distribution: this.buildRevealPayload(round).distribution,
+        answeredCount: round.answers.size,
+        correctCount: correctSubmissions.length,
+        durationMs: round.durationMs,
+        averageElapsedMs:
+          elapsed.length > 0 ? Math.round(elapsed.reduce((sum, v) => sum + v, 0) / elapsed.length) : null,
+        fastestCorrect:
+          fastest && fastestPlayer ? { nickname: fastestPlayer.nickname, elapsedMs: fastest.elapsedMs } : null,
+      };
+    });
+
+    const players: ReviewPlayer[] = this.sortedPlayers().map((player) => {
+      const answers: ReviewAnswer[] = playedRounds.map((round) => {
+        const submission = round.answers.get(player.id);
+        const result = round.results.get(player.id);
+        return {
+          answer: submission?.answer ?? null,
+          correct: submission?.answer === round.correctDisplayId,
+          points: result?.pointsAwarded ?? 0,
+          elapsedMs: submission ? Math.max(0, submission.atMs - round.startedAtMs) : null,
+        };
+      });
+
+      const times = answers.map((a) => a.elapsedMs).filter((v): v is number => v !== null);
+      return {
+        playerId: player.id,
+        nickname: player.nickname,
+        score: player.score,
+        streak: player.streak,
+        correctCount: answers.filter((a) => a.correct).length,
+        answeredCount: times.length,
+        averageElapsedMs: times.length > 0 ? Math.round(times.reduce((sum, v) => sum + v, 0) / times.length) : null,
+        answers,
+      };
+    });
+
+    return {
+      code: this.code,
+      totalRounds: this.questions.length,
+      playedRounds: playedRounds.length,
+      rounds,
+      players,
+    };
   }
 
   // ------------------------------------------------------------------- Timer
@@ -696,6 +868,7 @@ export class Room {
   }
 
   destroy(): void {
+    this.cancelAuto();
     this.stopTicker();
     this.players.clear();
     this.tokenIndex.clear();
@@ -719,5 +892,7 @@ export function normalizeConfig(raw: unknown, poolSize?: number): GameConfig {
     questionCount,
     randomizeQuestions: input.randomizeQuestions === true,
     timerPreset,
+    autoAdvance: input.autoAdvance === true,
+    autoRevealAnswers: input.autoRevealAnswers === true,
   };
 }

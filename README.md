@@ -165,6 +165,9 @@ Das `HOST_SECRET` ist das Passwort für die Host-Ansicht. Verhalten:
 - **Stabil**: Ein bereits gesetztes Secret wird bei weiteren `make up`-Aufrufen niemals
   überschrieben.
 - **Anzeige**: `make up` gibt es am Ende aus, jederzeit abrufbar über `make secret`.
+- **Ablage**: Es steht in der `.env` und zusätzlich im Klartext in der Datei `.pw` im
+  Projektverzeichnis (Rechte 600). Beide sind über `.gitignore` vom Commit ausgeschlossen.
+  Beides sind Punktdateien — `ls` zeigt sie nur mit `ls -a`.
 - **Ändern**: Wert in der `.env` überschreiben, dann `make reset` (oder `make up`).
   Bereits angemeldete Host-Sitzungen bleiben bis zum Neustart der App gültig, weil die
   ausgegebenen Host-Tokens im Speicher der App liegen.
@@ -185,8 +188,8 @@ Sicherheitseigenschaften:
 ## Ablauf einer Unterrichtsstunde
 
 1. `https://DEINE-DOMAIN/host` öffnen, `HOST_SECRET` eingeben.
-2. Anzahl Fragen (Standard 12), Timer-Preset und optional Zufallsauswahl wählen,
-   **Quiz erstellen**.
+2. Anzahl Fragen (Standard 12), Timer-Preset und die drei Schalter wählen
+   (Zufallsauswahl, automatisches Weiterschalten, Antwortdetails), dann **Quiz erstellen**.
 3. Die Lobby auf den Beamer legen (Vollbild-Button oben rechts oder Taste `F`).
    Die Klasse scannt den QR-Code oder tippt Code und Nickname ein.
 4. **Start** — die erste Frage läuft.
@@ -195,9 +198,51 @@ Sicherheitseigenschaften:
 7. **Next** — nächste Frage. Nach der letzten Runde führt **Next** zum Endstand.
 8. **End Game** — bricht jederzeit ab und zeigt die finale Rangliste.
 
-Alle Übergänge steuert der Host manuell. Automatisch passiert nur zweierlei: Der Timer
-sperrt die Antworten nach Ablauf der Zeit, und die Runde wird gesperrt, sobald alle
-Teilnehmer geantwortet haben. Aufgelöst wird trotzdem erst auf Knopfdruck.
+Standardmäßig steuert der Host alle Übergänge manuell. Von selbst passiert nur zweierlei:
+Der Timer sperrt die Antworten nach Ablauf der Zeit, und die Runde wird gesperrt, sobald
+alle Teilnehmer geantwortet haben. Aufgelöst wird trotzdem erst auf Knopfdruck.
+
+### Automatisch weiterschalten
+
+Ist die Option beim Erstellen aktiviert, übernimmt der Server die Übergänge:
+
+| Auslöser                          | Wartezeit | Nächster Schritt                        |
+| --------------------------------- | --------- | --------------------------------------- |
+| Zeit abgelaufen / alle geantwortet | 1,5 s     | Auflösung                               |
+| Auflösung sichtbar                 | 10 s      | nächste Frage bzw. Abschluss            |
+
+Die Steuerleiste zeigt dabei laufend, was als Nächstes passiert und in wie vielen
+Sekunden. Zwei Dinge bleiben immer möglich:
+
+- **Eingreifen**: Jeder Klick auf Reveal, Next, Leaderboard oder End Game verwirft den
+  geplanten Schritt und gilt sofort.
+- **Anhalten**: Der Button *Automatik anhalten* stoppt die Uhr, etwa für eine Zwischenfrage
+  aus der Klasse. *Automatik fortsetzen* plant den passenden Schritt neu.
+
+### Antwortdetails je Runde
+
+Auf dem Auflösungs-Screen lässt sich einblenden, **wer was geantwortet hat** — jeweils mit
+der benötigten Zeit in Sekunden, nach Schnelligkeit sortiert, richtig und falsch getrennt
+markiert (Symbol und Farbe, nicht nur Farbe).
+
+Der Schalter **Antwortdetails automatisch zeigen** entscheidet, wann das passiert:
+
+- **an**: Die Liste erscheint direkt mit der Auflösung.
+- **aus** (Standard): Auf dem Auflösungs-Screen steht der Button
+  *Wer hat was geantwortet?* — praktisch, wenn erst die Klasse raten soll.
+
+Die Daten verlassen den Server erst nach der Auflösung und gehen ausschließlich an den
+authentifizierten Host, nie an die Teilnehmergeräte.
+
+### Endkarte mit Auswertung
+
+Nach **End Game** bzw. der letzten Runde zeigt die Beameransicht eine Endkarte: links die
+finale Rangliste, rechts die vollständige Auswertung — ohne Seitenwechsel.
+
+Die Auswertung zeigt pro Teilnehmer und Runde die gewählte Antwort, ob sie richtig war und
+**wie schnell** geantwortet wurde, dazu je Runde die Lösung, die Trefferquote, die mittlere
+Antwortzeit und die schnellste richtige Antwort. Über **CSV** landet alles als
+Semikolon-Datei (Excel-tauglich, mit BOM) auf der Platte.
 
 ### Tastenkürzel in der Beameransicht
 
@@ -270,12 +315,15 @@ Der Client sendet ausschließlich „ich wähle B“ — nie Punkte, nie Zeitste
 │   │   │   └── components/
 │   │   │       ├── AnswerOption.svelte      Antwortfläche
 │   │   │       ├── Backdrop.svelte          Hintergrund (Grid, Lifelines)
+│   │   │       ├── Credit.svelte            Herstellerhinweis
 │   │   │       ├── Brand.svelte             Logo und Wortmarke
 │   │   │       ├── DistributionChart.svelte Antwortverteilung
 │   │   │       ├── Leaderboard.svelte       Rangliste
 │   │   │       ├── NoticeBar.svelte         Fehlermeldungen
 │   │   │       ├── OptionGlyph.svelte       Form je Antwortoption
 │   │   │       ├── QrCode.svelte            QR-Code (lokal erzeugt)
+│   │   │       ├── ReviewMatrix.svelte      Auswertung inkl. CSV-Export
+│   │   │       ├── RoundAnswers.svelte      Antwortdetails einer Runde
 │   │   │       ├── SoundToggle.svelte       Ton an/aus
 │   │   │       ├── StatTile.svelte          Kennzahl-Kachel
 │   │   │       └── TimerBar.svelte          Countdown-Balken
@@ -305,7 +353,7 @@ Der Client sendet ausschließlich „ich wähle B“ — nie Punkte, nie Zeitste
 │       ├── types.ts                Domänentypen
 │       ├── events.ts               Socket.IO-Eventtypen
 │       └── questions.ts            30 Fragen inklusive Erklärungen
-├── tests/                          Vitest (8 Dateien, 104 Tests)
+├── tests/                          Vitest (10 Dateien, 121 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -347,7 +395,8 @@ Der Client sendet ausschließlich „ich wähle B“ — nie Punkte, nie Zeitste
 
 **Client → Server**: `join_room`, `reconnect_player`, `submit_answer`, `leave_room`,
 `host_create_game`, `host_join_room`, `host_start_game`, `host_reveal`, `host_next`,
-`host_show_leaderboard`, `host_end_game`, `host_kick_player`
+`host_show_leaderboard`, `host_end_game`, `host_kick_player`, `host_set_auto`,
+`host_get_review`
 
 **Server → Client**: `room_state`, `player_joined`, `player_left`, `question_started`,
 `timer_sync`, `answer_locked`, `answer_progress`, `question_locked`, `reveal_answer`,
@@ -610,7 +659,7 @@ Im Produktionsmodus verweigert der Server ohne `HOST_SECRET` den Start.
 npm test
 ```
 
-104 Tests in 8 Dateien decken ab:
+121 Tests in 10 Dateien decken ab:
 
 - **Punkteberechnung** — Basis, Grenzwerte, Ganzzahligkeit, keine negativen Punkte
 - **Zeitbonus** — linear, geklemmt, robust gegen `NaN` und Dauer 0
@@ -625,6 +674,10 @@ npm test
 - **Fragenpool-Konsistenz** — je vier Antworten, genau eine Lösung, Erklärung vorhanden
 - **Reconnect** — Punkte, Streak und abgegebene Antwort überleben eine Trennung; die
   verspätete Trennung eines abgelösten Sockets schaltet den Teilnehmer nicht offline
+- **Automatik** — geplante Schritte, manuelle Aktionen gewinnen immer, Anhalten und
+  Fortsetzen, kein Nachfeuern verworfener Schritte
+- **Auswertung** — wer hat was und wie schnell geantwortet, laufende Runde bleibt verborgen
+- **Konfiguration** — Grenzwerte und manipulierte Werte werden auf gültige Defaults gezogen
 - **Robustheit** — manipulierte Socket-Payloads führen zu Fehlerantworten, nicht zu Abstürzen
 
 ---
@@ -677,8 +730,9 @@ Bewusste Entscheidungen, keine offenen Baustellen:
    das Secret hat, kann Sessions anlegen und steuern.
 6. **Host-Tokens überleben keinen Neustart.** Nach einem App-Neustart muss sich der Host
    erneut anmelden.
-7. **Ergebnisse werden nicht exportiert.** Nach `End Game` steht die Rangliste auf dem
-   Beamer; es gibt keinen CSV-Download und keine Historie.
+7. **Ergebnisse leben nur bis zum Neustart.** Die Endkarte zeigt die vollständige
+   Auswertung und bietet einen CSV-Export. Danach ist nichts gespeichert: Es gibt keine
+   Historie und keinen Weg, eine beendete Session später erneut zu öffnen.
 8. **Sounds sind synthetisch.** Statt lizenzierter Audiodateien erzeugt die App kurze Töne
    per WebAudio. Browser starten Audio erst nach der ersten Nutzerinteraktion — auf der
    Beameransicht also nach dem ersten Klick oder Tastendruck. Abschaltbar über den
