@@ -5,6 +5,12 @@ services:
     image: traefik:v3.3
     container_name: sequence-challenge-traefik
     restart: unless-stopped
+    environment:
+      # Der Docker-Client in Traefik faellt ohne Aushandlung auf API-Version 1.24
+      # zurueck. Neuere Docker Engines (ab 29) lehnen das ab -- Traefik liest dann
+      # KEINE Container-Labels, es entsteht kein Router und ausgeliefert wird nur
+      # das Traefik-Default-Zertifikat. 1.41 unterstuetzt Docker 20.10 bis 29+.
+      DOCKER_API_VERSION: ${DOCKER_API_VERSION:-1.41}
     command:
       - --global.checknewversion=false
       - --global.sendanonymoususage=false

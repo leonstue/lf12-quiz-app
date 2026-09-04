@@ -29,6 +29,7 @@ serverseitig. Der Client erfährt die Lösung erst beim Reveal.
 - [Konfiguration](#konfiguration)
 - [Make-Befehle](#make-befehle)
 - [Entwicklung](#entwicklung)
+- [Fehlersuche](#fehlersuche)
 - [Tests](#tests)
 - [Sicherheit](#sicherheit)
 - [Bekannte Einschränkungen](#bekannte-einschränkungen)
@@ -471,6 +472,12 @@ Standardwerten):
 | `ANSWER_GRACE_MS`     | `750`    | Kulanz für Netzwerklatenz bei der Deadline   |
 | `PUBLIC_BASE_URL`     | –        | überschreibt die aus `DOMAIN` gebaute Join-URL |
 
+Zusätzlich für Traefik (ebenfalls in der `.env` setzbar):
+
+| Variable             | Standard | Bedeutung                                                                     |
+| -------------------- | -------- | ----------------------------------------------------------------------------- |
+| `DOCKER_API_VERSION` | `1.41`   | Docker-API-Version, die Traefik spricht — siehe [Fehlersuche](#fehlersuche)    |
+
 ---
 
 ## Make-Befehle
@@ -486,6 +493,7 @@ Standardwerten):
 | `make build`   | Images neu bauen                                                         |
 | `make update`  | `git pull` + Build + Neustart                                            |
 | `make clean`   | Container, Image und Build-Reste entfernen — **Zertifikate bleiben**      |
+| `make doctor`  | Deployment diagnostizieren: DNS, Ports, Router, Zertifikat, Logs        |
 | `make status`  | URLs und `HOST_SECRET` anzeigen                                          |
 | `make secret`  | nur das `HOST_SECRET` ausgeben                                           |
 | `make url`     | nur die öffentliche URL ausgeben                                         |
@@ -494,6 +502,54 @@ Die Let's-Encrypt-Zertifikate liegen im benannten Volume
 `sequence-challenge-letsencrypt`. Weder `make down` noch `make clean` fassen dieses Volume
 an — es gibt in keinem Target ein `docker compose down -v`. Das Volume müsste man von Hand
 mit `docker volume rm sequence-challenge-letsencrypt` löschen.
+
+---
+
+## Fehlersuche
+
+Erste Anlaufstelle bei jedem Problem:
+
+```bash
+make doctor
+```
+
+Das prüft in einem Durchgang: laufende Container, Docker-API-Version, die Traefik-Labels
+am App-Container, den A-Record gegen die eigene öffentliche IP, belegte Ports, die
+Erreichbarkeit von HTTP/HTTPS und des ACME-Pfads, das ausgelieferte Zertifikat, den
+Inhalt von `acme.json`, die ACME-Zeilen aus dem Traefik-Log und die Gesundheit der App.
+
+### Es wird nur "TRAEFIK DEFAULT CERT" ausgeliefert
+
+Das heißt: Für diesen Hostnamen greift **kein Router** oder es existiert **noch kein
+Zertifikat**. Die häufigsten Ursachen:
+
+1. **Traefik kann die Docker-API nicht sprechen.** Im Log steht dann
+   `client version 1.24 is too old. Minimum supported API version is 1.40`. Traefik liest
+   in diesem Fall überhaupt keine Container-Labels — es entsteht kein einziger Router und
+   jede Anfrage landet beim Default-Zertifikat. Deshalb setzt die `docker-compose.yml` für
+   Traefik `DOCKER_API_VERSION` (Standard `1.41`). Bei einer sehr neuen Docker Engine kann
+   ein höherer Wert nötig sein; den unterstützten Bereich zeigt `docker version`
+   (Feld *API version* bzw. *Minimum API version*). Gesetzt wird er über die `.env`:
+
+   ```dotenv
+   DOCKER_API_VERSION=1.44
+   ```
+
+2. **DNS zeigt nicht auf diesen Server.** `make doctor` vergleicht den A-Record mit der
+   öffentlichen IP des Servers. Ohne Treffer kann Let's Encrypt die HTTP-01-Challenge
+   nicht ausliefern.
+
+3. **Port 80 ist von außen nicht erreichbar.** Die Challenge läuft ausschließlich über
+   HTTP. Firewall bzw. Security-Group müssen TCP 80 **und** 443 durchlassen.
+
+4. **Ein anderer Dienst belegt bereits 80/443.** Dann bindet Traefik nicht, oder ein
+   fremder Reverse-Proxy beantwortet die Anfragen. `make doctor` listet die Belegung.
+
+5. **Es ist schlicht noch zu früh.** Das erste Zertifikat braucht typischerweise 30–60
+   Sekunden. `make logs` zeigt den Fortschritt.
+
+> Let's Encrypt begrenzt fehlgeschlagene Validierungen (5 pro Hostname und Stunde). Nach
+> mehreren Fehlversuchen hilft nur: Ursache beheben und eine Stunde warten.
 
 ---
 

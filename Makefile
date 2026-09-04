@@ -15,7 +15,7 @@ ENV_FILE := .env
 ENV_EXAMPLE := .env.example
 LE_VOLUME := sequence-challenge-letsencrypt
 
-.PHONY: help up down restart logs ps build update clean reset env status secret url check-tools
+.PHONY: help up down restart logs ps build update clean reset env status secret url check-tools doctor
 
 ## help: Verfuegbare Befehle anzeigen
 help:
@@ -33,6 +33,7 @@ help:
 	@echo "  make clean     Container und Build-Reste entfernen (Zertifikate bleiben)"
 	@echo "  make status    URLs und HOST_SECRET anzeigen"
 	@echo "  make secret    Nur das HOST_SECRET ausgeben"
+	@echo "  make doctor    Deployment pruefen (DNS, Ports, Router, Zertifikat)"
 	@echo ""
 
 check-tools:
@@ -44,8 +45,10 @@ check-tools:
 ## env: .env anlegen und HOST_SECRET erzeugen, Domain pruefen
 env: check-tools
 	@set -e
+	ENV_CREATED=0
 	if [ ! -f "$(ENV_FILE)" ]; then \
 	        cp "$(ENV_EXAMPLE)" "$(ENV_FILE)"; \
+	        ENV_CREATED=1; \
 	        echo ">> $(ENV_FILE) wurde aus $(ENV_EXAMPLE) erstellt."; \
 	fi
 	CURRENT_SECRET=$$(grep -E '^HOST_SECRET=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs || true); \
@@ -58,21 +61,40 @@ env: check-tools
 	        fi; \
 	        echo ">> HOST_SECRET wurde automatisch erzeugt."; \
 	fi
-	CURRENT_DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs || true); \
+	CURRENT_DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs || true)
+	EXAMPLE_DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_EXAMPLE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs || true)
 	if [ -z "$$CURRENT_DOMAIN" ] || [ "$$CURRENT_DOMAIN" = "quiz.example.de" ]; then \
 	        echo ""; \
 	        echo "=============================================================="; \
-	        echo " Bitte DOMAIN in .env auf deine echte Domain setzen."; \
+	        echo " DOMAIN in $(ENV_FILE) ist noch nicht gesetzt"; \
 	        echo "=============================================================="; \
 	        echo ""; \
-	        echo " Die Datei .env wurde angelegt, enthaelt aber noch die"; \
-	        echo " Beispiel-Domain 'quiz.example.de'."; \
+	        echo "   aktuell in $(ENV_FILE)        : $${CURRENT_DOMAIN:-(leer)}"; \
+	        echo "   hinterlegt in $(ENV_EXAMPLE) : $${EXAMPLE_DOMAIN:-(leer)}"; \
 	        echo ""; \
-	        echo " 1) nano .env"; \
-	        echo " 2) DOMAIN=quiz.example.de  ->  DOMAIN=deine-domain.de"; \
-	        echo " 3) A/AAAA-Record der Domain muss auf diesen Server zeigen"; \
-	        echo " 4) TCP 80 und 443 muessen erreichbar sein"; \
-	        echo " 5) danach erneut:  make up"; \
+	        if [ "$$ENV_CREATED" = "1" ]; then \
+	                echo " Die Datei $(ENV_FILE) wurde soeben aus $(ENV_EXAMPLE) erstellt und"; \
+	                echo " enthaelt noch die Platzhalter-Domain."; \
+	        else \
+	                echo " Die Datei $(ENV_FILE) existierte bereits und wurde deshalb NICHT"; \
+	                echo " ueberschrieben -- sie enthaelt dein HOST_SECRET. Stammt sie noch"; \
+	                echo " von einem frueheren Start, traegst du die Domain einmalig nach."; \
+	        fi; \
+	        echo ""; \
+	        if [ -n "$$EXAMPLE_DOMAIN" ] && [ "$$EXAMPLE_DOMAIN" != "quiz.example.de" ]; then \
+	                echo " Schnellster Weg:"; \
+	                echo ""; \
+	                echo "   sed -i 's|^DOMAIN=.*|DOMAIN=$$EXAMPLE_DOMAIN|' $(ENV_FILE) && make up"; \
+	                echo ""; \
+	                echo " Oder von Hand:  nano $(ENV_FILE)"; \
+	        else \
+	                echo " nano $(ENV_FILE)  und dort DOMAIN auf deine echte Domain setzen,"; \
+	                echo " danach erneut:  make up"; \
+	        fi; \
+	        echo ""; \
+	        echo " Ausserdem noetig:"; \
+	        echo "   - A/AAAA-Record der Domain zeigt auf diesen Server"; \
+	        echo "   - TCP 80 und 443 sind von aussen erreichbar"; \
 	        echo ""; \
 	        exit 1; \
 	fi
@@ -103,6 +125,58 @@ status:
 	echo ""; \
 	echo " Hinweis: Das erste Zertifikat kann 30-60 Sekunden dauern."; \
 	echo "=============================================================="
+
+## doctor: Deployment diagnostizieren -- DNS, Ports, Traefik-Router, Zertifikat
+doctor:
+	@DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" 2>/dev/null | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
+	if [ -z "$$DOMAIN" ]; then echo "FEHLER: Keine DOMAIN in $(ENV_FILE). Zuerst 'make up' ausfuehren."; exit 1; fi
+	echo ""
+	echo "=============================================================="
+	echo " Diagnose fuer $$DOMAIN"
+	echo "=============================================================="
+	echo ""
+	echo "--- 1. Container ---"
+	$(COMPOSE) ps || true
+	echo ""
+	echo "--- 2. Docker-API (haeufigste Fehlerquelle) ---"
+	SRV=$$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo '?')
+	MIN=$$(docker version --format '{{.Server.MinAPIVersion}}' 2>/dev/null || echo '?')
+	echo "  Daemon-API: $$SRV   Minimum: $$MIN"
+	echo "  Traefik nutzt DOCKER_API_VERSION=$$(docker inspect sequence-challenge-traefik --format '{{json .Config.Env}}' 2>/dev/null | tr ',' '\n' | grep DOCKER_API_VERSION | cut -d= -f2 | tr -d '"]' || echo '(nicht gesetzt)')"
+	if $(COMPOSE) logs traefik 2>/dev/null | grep -q 'is too old'; then 	  echo "  FEHLER: Traefik kann die Docker-API nicht sprechen -- es entstehen KEINE Router."; 	  echo "          Abhilfe: DOCKER_API_VERSION in docker-compose.yml erhoehen, dann 'make up'."; 	else 	  echo "  ok: keine API-Versionsfehler im Traefik-Log"; 	fi
+	echo ""
+	echo "--- 3. Router-Labels am App-Container ---"
+	docker inspect sequence-challenge-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container laeuft nicht"
+	echo ""
+	echo "--- 4. DNS ---"
+	PUBIP=$$(curl -s --max-time 6 https://api.ipify.org || echo '?')
+	DNSIP=$$(getent ahostsv4 "$$DOMAIN" 2>/dev/null | awk '{print $$1}' | sort -u | tr '\n' ' ')
+	echo "  Server (oeffentlich): $$PUBIP"
+	echo "  A-Record $$DOMAIN: $${DNSIP:-(keine Antwort)}"
+	case " $$DNSIP " in *" $$PUBIP "*) echo "  ok: DNS zeigt auf diesen Server";; *) echo "  ACHTUNG: DNS zeigt NICHT auf diesen Server -- Let's Encrypt kann kein Zertifikat ausstellen";; esac
+	echo ""
+	echo "--- 5. Ports ---"
+	(ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep -E ':(80|443) ' | sed 's/^/  /' || echo "  nichts auf 80/443 gefunden"
+	echo ""
+	echo "--- 6. Erreichbarkeit von aussen ---"
+	curl -s -o /dev/null --max-time 10 -w "  http  -> HTTP %{http_code} (Redirect: %{redirect_url})\n" "http://$$DOMAIN/" || echo "  http  -> nicht erreichbar"
+	curl -sk -o /dev/null --max-time 10 -w "  https -> HTTP %{http_code}\n" "https://$$DOMAIN/" || echo "  https -> nicht erreichbar"
+	curl -s -o /dev/null --max-time 10 -w "  ACME-Pfad -> HTTP %{http_code}\n" "http://$$DOMAIN/.well-known/acme-challenge/probe" || true
+	echo ""
+	echo "--- 7. Zertifikat ---"
+	CN=$$(echo | openssl s_client -connect "$$DOMAIN:443" -servername "$$DOMAIN" 2>/dev/null | openssl x509 -noout -issuer -subject 2>/dev/null | sed 's/^/  /')
+	if [ -n "$$CN" ]; then echo "$$CN"; else echo "  kein TLS-Handshake moeglich"; fi
+	if echo "$$CN" | grep -qi 'TRAEFIK DEFAULT CERT'; then 	  echo "  -> Default-Zertifikat: entweder greift kein Router oder ACME ist fehlgeschlagen (siehe 2., 4. und 8.)"; 	fi
+	SIZE=$$($(COMPOSE) exec -T traefik sh -c 'wc -c < /letsencrypt/acme.json' 2>/dev/null | tr -d '\r ' || echo 0)
+	echo "  acme.json: $${SIZE:-0} Bytes"
+	if $(COMPOSE) exec -T traefik sh -c "grep -q '$$DOMAIN' /letsencrypt/acme.json" 2>/dev/null; then 	  echo "  ok: $$DOMAIN ist im Zertifikatsspeicher"; 	else 	  echo "  $$DOMAIN noch NICHT im Zertifikatsspeicher"; 	fi
+	echo ""
+	echo "--- 8. Traefik-Log (ACME und Fehler) ---"
+	$(COMPOSE) logs --tail=300 traefik 2>/dev/null | grep -iE 'acme|certificate|error|unable|challenge' | tail -20 | sed 's/^/  /' || echo "  keine Treffer"
+	echo ""
+	echo "--- 9. App ---"
+	$(COMPOSE) exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(d=>console.log('  /api/health ->', JSON.stringify(d))).catch(e=>console.log('  App antwortet nicht:', e.message))" 2>/dev/null || echo "  App-Container nicht erreichbar"
+	echo ""
 
 ## secret: HOST_SECRET ausgeben
 secret:
@@ -144,6 +218,7 @@ build:
 update:
 	@set -e
 	git pull --ff-only
+	@$(MAKE) --no-print-directory env
 	$(COMPOSE) build
 	$(COMPOSE) up -d
 	@echo ">> Update abgeschlossen."
