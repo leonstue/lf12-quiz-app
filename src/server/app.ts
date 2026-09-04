@@ -6,13 +6,13 @@ import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 
-import { QUESTION_POOL_SIZE } from '../shared/questions.js';
 import { QUESTION_COUNT_OPTIONS } from '../shared/types.js';
 import { config } from './config.js';
 import type { GameManager } from './game/GameManager.js';
 import { normalizeRoomCode } from './game/roomCode.js';
 import type { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
+import type { QuizRegistry } from './quiz/loader.js';
 
 const log = createLogger('http');
 
@@ -34,11 +34,12 @@ function resolveClientDir(): string | null {
 
 export interface BuildAppOptions {
   hostAuth: HostAuth;
+  quizzes: QuizRegistry;
   /** Wird erst nach dem Aufbau des Socket-Layers gesetzt. */
   getGames: () => GameManager | null;
 }
 
-export async function buildApp({ hostAuth, getGames }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false,
     trustProxy: true,
@@ -55,9 +56,18 @@ export async function buildApp({ hostAuth, getGames }: BuildAppOptions): Promise
   app.get('/api/health', async () => ({ status: 'ok' }));
 
   app.get('/api/meta', async () => ({
-    questionPoolSize: QUESTION_POOL_SIZE,
+    quizCount: quizzes.size,
     questionCountOptions: QUESTION_COUNT_OPTIONS,
     publicBaseUrl: config.publicBaseUrl,
+  }));
+
+  /**
+   * Auswahlliste der Quizze -- ohne Fragen und ohne Lösungen.
+   * Wird bei jedem Aufruf frisch gelesen, damit neue Dateien ohne Neustart wirken.
+   */
+  app.get('/api/quizzes', { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } }, async () => ({
+    quizzes: quizzes.summaries(),
+    errors: quizzes.loadErrors.map((error) => ({ file: error.file, message: error.message })),
   }));
 
   app.post<{ Body: { secret?: unknown } }>(

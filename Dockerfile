@@ -49,6 +49,9 @@ RUN apk add --no-cache dumb-init
 
 COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+# Quizze mitliefern, damit das Image auch ohne Volume spielbar ist.
+# Die Compose-Datei mountet zusaetzlich ./quizzes -- dann gewinnt der Host.
+COPY --chown=node:node quizzes ./quizzes
 COPY --chown=node:node package.json ./
 
 USER node

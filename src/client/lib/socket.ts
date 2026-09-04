@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 
 import type { ClientToServerEvents, ServerToClientEvents } from '../../shared/events.js';
-import type { SocketError } from '../../shared/types.js';
+import type { QuizSummary, SocketError } from '../../shared/types.js';
 
 export type ClientSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -80,6 +80,22 @@ export async function hostLogin(secret: string): Promise<{ ok: true; hostToken: 
     return { ok: false, error: data.error ?? 'Anmeldung fehlgeschlagen.' };
   } catch {
     return { ok: false, error: 'Der Server ist nicht erreichbar.' };
+  }
+}
+
+export interface QuizListResult {
+  quizzes: QuizSummary[];
+  errors: { file: string; message: string }[];
+}
+
+/** Auswahlliste der Quizze -- enthaelt weder Fragen noch Loesungen. */
+export async function fetchQuizzes(): Promise<QuizListResult> {
+  try {
+    const response = await fetch('/api/quizzes');
+    if (!response.ok) return { quizzes: [], errors: [] };
+    return (await response.json()) as QuizListResult;
+  } catch {
+    return { quizzes: [], errors: [] };
   }
 }
 

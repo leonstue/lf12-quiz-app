@@ -1,6 +1,5 @@
 import { randomInt } from 'node:crypto';
 
-import { DEFAULT_QUESTION_IDS, QUESTIONS } from '../../shared/questions.js';
 import type { QuizQuestion } from '../../shared/types.js';
 
 /** Fisher-Yates mit kryptographischer Zufallsquelle. */
@@ -16,8 +15,9 @@ export function shuffle<T>(items: readonly T[]): T[] {
 export interface SelectionOptions {
   count: number;
   randomize: boolean;
-  /** Nur für Tests / alternative Pools. */
-  pool?: readonly QuizQuestion[];
+  /** Fragenpool des gewählten Quiz. */
+  pool: readonly QuizQuestion[];
+  /** Kuratierte Reihenfolge des Quiz, wenn nicht gemischt wird. */
   defaultIds?: readonly string[];
 }
 
@@ -28,12 +28,8 @@ export interface SelectionOptions {
  * - `randomize = false`: kuratierte Standardliste, bei Bedarf aufgefüllt
  *   bzw. gekürzt -- ebenfalls immer duplikatfrei
  */
-export function selectQuestions({
-  count,
-  randomize,
-  pool = QUESTIONS,
-  defaultIds = DEFAULT_QUESTION_IDS,
-}: SelectionOptions): QuizQuestion[] {
+export function selectQuestions({ count, randomize, pool, defaultIds = [] }: SelectionOptions): QuizQuestion[] {
+  if (pool.length === 0) return [];
   const size = Math.min(Math.max(Math.floor(count) || 0, 1), pool.length);
 
   if (randomize) {

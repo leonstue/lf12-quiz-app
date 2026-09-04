@@ -1,4 +1,4 @@
-# Sequence Challenge -- Betrieb auf einem Ubuntu-Server
+# Quiz App -- Betrieb auf einem Ubuntu-Server
 #
 #   make up       Erstkonfiguration, Build und Start
 #   make down     Container stoppen (Zertifikate bleiben erhalten)
@@ -14,14 +14,14 @@ COMPOSE  := docker compose
 ENV_FILE := .env
 ENV_EXAMPLE := .env.example
 PW_FILE := .pw
-LE_VOLUME := sequence-challenge-letsencrypt
+LE_VOLUME := quiz-app-letsencrypt
 
-.PHONY: help up down restart logs ps build update clean reset env status secret url check-tools doctor
+.PHONY: help up down restart logs ps build update clean reset env status secret url check-tools doctor legacy-cleanup
 
 ## help: Verfuegbare Befehle anzeigen
 help:
 	@echo ""
-	@echo "  Sequence Challenge -- Live-Quiz zu UML-Sequenzdiagrammen"
+	@echo "  Quiz App -- Live-Quiz zu UML-Sequenzdiagrammen"
 	@echo ""
 	@echo "  make up        .env vorbereiten, Images bauen, Stack starten"
 	@echo "  make down      Container stoppen und entfernen (Zertifikate bleiben)"
@@ -101,12 +101,21 @@ env: check-tools
 	fi
 	DOMAIN_NOW=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 	SECRET_NOW=$$(grep -E '^HOST_SECRET=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-	printf '%s\n' "Sequence Challenge -- Host-Zugang" "" "Host-Ansicht : https://$$DOMAIN_NOW/host" "Passwort     : $$SECRET_NOW" "" "Diese Datei erzeugt 'make up'. Sie liegt NICHT im Git." "Passwort aendern: HOST_SECRET in .env setzen, dann 'make up'." > "$(PW_FILE)"
+	printf '%s\n' "Quiz App -- Host-Zugang" "" "Host-Ansicht : https://$$DOMAIN_NOW/host" "Passwort     : $$SECRET_NOW" "" "Diese Datei erzeugt 'make up'. Sie liegt NICHT im Git." "Passwort aendern: HOST_SECRET in .env setzen, dann 'make up'." > "$(PW_FILE)"
 	chmod 600 "$(PW_FILE)" 2>/dev/null || true
 	@echo ">> Konfiguration ok. Host-Passwort steht in $(PW_FILE) (und in $(ENV_FILE))."
 
+## legacy-cleanup: Container des frueheren Projektnamens entfernen
+legacy-cleanup:
+	@if [ -n "$$(docker ps -aq --filter 'name=sequence-challenge-' 2>/dev/null)" ]; then \
+	  echo ">> Alte Container aus dem Projekt 'sequence-challenge' werden entfernt,"; \
+	  echo "   damit die Ports 80/443 frei werden. Zertifikate bleiben erhalten."; \
+	  docker compose -p sequence-challenge down --remove-orphans >/dev/null 2>&1 || true; \
+	  docker rm -f $$(docker ps -aq --filter 'name=sequence-challenge-') >/dev/null 2>&1 || true; \
+	fi
+
 ## up: Stack bauen und starten
-up: env
+up: env legacy-cleanup
 	@set -e
 	$(COMPOSE) up -d --build
 	@echo ""
@@ -120,7 +129,7 @@ status:
 	$(COMPOSE) ps; \
 	echo ""; \
 	echo "=============================================================="; \
-	echo " Sequence Challenge laeuft"; \
+	echo " Quiz App laeuft"; \
 	echo "=============================================================="; \
 	echo " Teilnehmer : https://$$DOMAIN"; \
 	echo " Beitreten  : https://$$DOMAIN/join"; \
@@ -155,7 +164,7 @@ doctor:
 	if $(COMPOSE) logs traefik 2>/dev/null | grep -q 'is too old'; then 	  echo ""; 	  echo "  FEHLER: Traefik kann die Docker-API nicht sprechen."; 	  echo "          Es entstehen KEINE Router -- jede Anfrage landet beim Default-Zertifikat."; 	  echo "          Traefik vor 3.6.1 pinnt die Docker-API auf 1.24; Docker Engine 29"; 	  echo "          verlangt mindestens $$MIN. DOCKER_API_VERSION hilft nicht, die"; 	  echo "          Variable wird von Traefik ignoriert."; 	  echo ""; 	  echo "          Abhilfe:  git pull && make up      (nutzt traefik:v3.6)"; 	else 	  echo "  ok: keine API-Versionsfehler im Traefik-Log"; 	fi
 	echo ""
 	echo "--- 3. Router-Labels am App-Container ---"
-	docker inspect sequence-challenge-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container laeuft nicht"
+	docker inspect quiz-app-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container laeuft nicht"
 	echo ""
 	echo "--- 4. DNS ---"
 	PUBIP=$$(curl -s --max-time 6 https://api.ipify.org || echo '?')
@@ -184,8 +193,8 @@ doctor:
 	$(COMPOSE) logs --tail=300 traefik 2>/dev/null | grep -iE 'acme|certificate|error|unable|challenge' | tail -20 | sed 's/^/  /' || echo "  keine Treffer"
 	echo ""
 	echo "--- 9. Images und Ressourcen ---"
-	docker image ls sequence-challenge --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  erstellt {{.CreatedSince}}' 2>/dev/null | head -3 || true
-	if [ -z "$$(docker image ls -q sequence-challenge 2>/dev/null)" ]; then echo "  App-Image fehlt -- 'make up' baut es (dauert beim ersten Mal einige Minuten)."; fi
+	docker image ls quiz-app --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  erstellt {{.CreatedSince}}' 2>/dev/null | head -3 || true
+	if [ -z "$$(docker image ls -q quiz-app 2>/dev/null)" ]; then echo "  App-Image fehlt -- 'make up' baut es (dauert beim ersten Mal einige Minuten)."; fi
 	echo "  Speicher: $$(free -m 2>/dev/null | awk '/^Mem:/{print $$2" MB gesamt, "$$7" MB verfuegbar"}' || echo '?')"
 	echo "  Platte:   $$(df -h / 2>/dev/null | awk 'NR==2{print $$4" frei von "$$2}' || echo '?')"
 	echo ""
@@ -243,7 +252,7 @@ update:
 clean:
 	@set -e
 	$(COMPOSE) down --remove-orphans
-	docker image rm sequence-challenge:latest >/dev/null 2>&1 || true
+	docker image rm quiz-app:latest >/dev/null 2>&1 || true
 	docker builder prune -f || true
 	rm -rf dist
 	@echo ""

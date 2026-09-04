@@ -1,0 +1,94 @@
+{
+  "id": "beispiel-quiz",
+  "name": "Beispiel-Quiz",
+  "description": "Vorlage zum Kopieren: zeigt alle Felder eines Quiz mit sechs kurzen Fragen.",
+  "subject": "Vorlage",
+  "defaultQuestionIds": ["1", "2", "3", "4", "5"],
+  "questions": [
+    {
+      "id": "1",
+      "category": "Netzwerk",
+      "difficulty": 1,
+      "question": "Wofür steht die Abkürzung HTTP?",
+      "answers": [
+        { "id": "A", "text": "Hypertext Transfer Protocol" },
+        { "id": "B", "text": "High Throughput Transfer Path" },
+        { "id": "C", "text": "Hyperlink Text Transport Program" },
+        { "id": "D", "text": "Home Terminal Transfer Protocol" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "HTTP ist das Anwendungsprotokoll des Webs. Es überträgt Hypertext und beliebige weitere Ressourcen zwischen Client und Server."
+    },
+    {
+      "id": "2",
+      "category": "Netzwerk",
+      "difficulty": 1,
+      "question": "Welchen Port nutzt HTTPS standardmäßig?",
+      "answers": [
+        { "id": "A", "text": "80" },
+        { "id": "B", "text": "443" },
+        { "id": "C", "text": "8080" },
+        { "id": "D", "text": "22" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "HTTPS läuft standardmäßig auf TCP-Port 443. Port 80 ist für unverschlüsseltes HTTP reserviert, Port 22 für SSH."
+    },
+    {
+      "id": "3",
+      "category": "Datenbanken",
+      "difficulty": 2,
+      "question": "Was bewirkt ein Primärschlüssel in einer relationalen Tabelle?",
+      "answers": [
+        { "id": "A", "text": "Er identifiziert jeden Datensatz eindeutig" },
+        { "id": "B", "text": "Er sortiert die Tabelle automatisch alphabetisch" },
+        { "id": "C", "text": "Er verschlüsselt den Inhalt der Spalte" },
+        { "id": "D", "text": "Er verdoppelt die Schreibgeschwindigkeit" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Ein Primärschlüssel ist eindeutig und nicht NULL. Er dient als stabile Adresse eines Datensatzes und als Ziel für Fremdschlüssel."
+    },
+    {
+      "id": "4",
+      "category": "Versionsverwaltung",
+      "difficulty": 2,
+      "question": "Was macht der Befehl git merge?",
+      "answers": [
+        { "id": "A", "text": "Er führt die Änderungen eines Branches in den aktuellen Branch zusammen" },
+        { "id": "B", "text": "Er löscht alle lokalen Änderungen" },
+        { "id": "C", "text": "Er lädt ein Repository erstmalig herunter" },
+        { "id": "D", "text": "Er verschiebt das Repository auf einen anderen Server" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "merge übernimmt die Commits eines anderen Branches in den aktuellen. Bei überschneidenden Änderungen entsteht ein Konflikt, der aufgelöst werden muss."
+    },
+    {
+      "id": "5",
+      "category": "Programmierung",
+      "difficulty": 2,
+      "question": "Was beschreibt die Laufzeit O(n) bei einem Algorithmus?",
+      "answers": [
+        { "id": "A", "text": "Der Aufwand wächst linear mit der Eingabegröße" },
+        { "id": "B", "text": "Der Aufwand bleibt unabhängig von der Eingabe konstant" },
+        { "id": "C", "text": "Der Aufwand wächst quadratisch mit der Eingabegröße" },
+        { "id": "D", "text": "Der Algorithmus benötigt genau n Sekunden" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "O(n) bedeutet linearer Aufwand: Doppelt so viele Eingabedaten führen ungefähr zu doppeltem Aufwand. Die Notation beschreibt Wachstum, keine absolute Zeit."
+    },
+    {
+      "id": "6",
+      "category": "IT-Sicherheit",
+      "difficulty": 3,
+      "durationSeconds": 30,
+      "question": "Warum werden Passwörter mit einem Salt gespeichert?",
+      "answers": [
+        { "id": "A", "text": "Damit gleiche Passwörter unterschiedliche Hashes ergeben" },
+        { "id": "B", "text": "Damit sich das Passwort später wieder entschlüsseln lässt" },
+        { "id": "C", "text": "Damit der Hash kürzer und damit schneller vergleichbar wird" },
+        { "id": "D", "text": "Damit das Passwort in der Datenbank besser lesbar bleibt" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Ein zufälliger Salt pro Passwort sorgt dafür, dass identische Passwörter verschiedene Hashes ergeben. Damit werden vorberechnete Tabellen (Rainbow Tables) wertlos."
+    }
+  ]
+}

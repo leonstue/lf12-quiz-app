@@ -56,7 +56,39 @@ export const TIMER_PRESET_SECONDS: Record<TimerPreset, number | null> = {
 export const QUESTION_COUNT_OPTIONS = [5, 10, 12, 15, 20, 30] as const;
 export type QuestionCount = (typeof QUESTION_COUNT_OPTIONS)[number];
 
+// ------------------------------------------------------------------ Quizze
+
+/**
+ * Ein Quiz, wie es als JSON-Datei im Ordner `quizzes/` liegt.
+ * Enthaelt die Loesungen und verlaesst den Server deshalb nie unveraendert.
+ */
+export interface QuizDefinition {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  /** Kuratierte Reihenfolge, wenn nicht zufaellig gemischt wird. */
+  defaultQuestionIds: string[];
+  questions: QuizQuestion[];
+}
+
+/** Auswahlliste fuer den Host -- bewusst ohne Fragen und ohne Loesungen. */
+export interface QuizSummary {
+  id: string;
+  name: string;
+  description: string;
+  subject: string;
+  questionCount: number;
+  categories: string[];
+  /** Sinnvolle Werte fuer "Anzahl Fragen" bei diesem Quiz. */
+  countOptions: number[];
+  /** Anzahl Fragen der kuratierten Standardauswahl. */
+  defaultCount: number;
+}
+
 export interface GameConfig {
+  /** Welches Quiz aus dem Ordner `quizzes/` gespielt wird. */
+  quizId: string;
   questionCount: number;
   randomizeQuestions: boolean;
   timerPreset: TimerPreset;
@@ -105,6 +137,8 @@ export interface AnswerDistributionEntry {
 /** Snapshot, den jeder Client beim (Re-)Connect erhält. */
 export interface RoomState {
   code: string;
+  quizId: string;
+  quizName: string;
   phase: GamePhase;
   playerCount: number;
   answeredCount: number;
@@ -231,6 +265,7 @@ export interface ReviewPlayer {
 
 export interface GameReview {
   code: string;
+  quizName: string;
   totalRounds: number;
   /** Bereits aufgeloeste Runden -- nur diese sind auswertbar. */
   playedRounds: number;

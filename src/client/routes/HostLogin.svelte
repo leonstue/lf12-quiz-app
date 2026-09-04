@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, ArrowRight, Eye, KeyRound, LogOut, Play, Shuffle, Timer as TimerIcon } from '@lucide/svelte';
 
-  import { QUESTION_COUNT_OPTIONS, type GameConfig, type TimerPreset } from '../../shared/types.js';
+  import type { GameConfig, QuizSummary, TimerPreset } from '../../shared/types.js';
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
   import Credit from '../lib/components/Credit.svelte';
@@ -9,12 +9,16 @@
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
-  import { hostLogin } from '../lib/socket.js';
+  import { fetchQuizzes, hostLogin } from '../lib/socket.js';
 
   let secret = $state('');
   let loginError = $state<string | null>(null);
   let loggingIn = $state(false);
 
+  let quizzes = $state<QuizSummary[]>([]);
+  let quizErrors = $state<{ file: string; message: string }[]>([]);
+  let quizzesLoading = $state(true);
+  let selectedQuizId = $state<string | null>(null);
   let questionCount = $state<number>(12);
   let randomizeQuestions = $state(false);
   let autoAdvance = $state(false);
@@ -44,10 +48,33 @@
     }
   }
 
+  const selectedQuiz = $derived(quizzes.find((quiz) => quiz.id === selectedQuizId) ?? null);
+  const countOptions = $derived(selectedQuiz?.countOptions ?? []);
+
+  async function loadQuizzes(): Promise<void> {
+    quizzesLoading = true;
+    const result = await fetchQuizzes();
+    quizzes = result.quizzes;
+    quizErrors = result.errors;
+    quizzesLoading = false;
+    if (quizzes.length > 0 && !quizzes.some((quiz) => quiz.id === selectedQuizId)) {
+      selectQuiz(quizzes[0]);
+    }
+  }
+
+  /** Beim Wechsel die Fragenanzahl auf einen für dieses Quiz gültigen Wert ziehen. */
+  function selectQuiz(quiz: QuizSummary): void {
+    selectedQuizId = quiz.id;
+    questionCount = quiz.countOptions.includes(quiz.defaultCount)
+      ? quiz.defaultCount
+      : (quiz.countOptions.find((value) => value >= quiz.defaultCount) ?? quiz.questionCount);
+  }
+
   async function createGame(): Promise<void> {
-    if (creating) return;
+    if (creating || !selectedQuizId) return;
     creating = true;
     const config: GameConfig = {
+      quizId: selectedQuizId,
       questionCount,
       randomizeQuestions,
       timerPreset,
@@ -67,6 +94,11 @@
 
   $effect(() => {
     hostGame.attach();
+  });
+
+  $effect(() => {
+    // Nach der Anmeldung die verfügbaren Quizze holen.
+    if (hostGame.isAuthenticated && quizzes.length === 0 && quizzesLoading) void loadQuizzes();
   });
 </script>
 
@@ -131,9 +163,46 @@
         </div>
 
         <fieldset class="group">
+          <legend class="field-label">Quiz</legend>
+          {#if quizzesLoading}
+            <p class="hint">Quizze werden geladen …</p>
+          {:else if quizzes.length === 0}
+            <p class="hint warn">
+              Kein Quiz gefunden. Lege eine JSON-Datei im Ordner <code>quizzes/</code> ab und lade neu.
+            </p>
+          {:else}
+            <div class="quiz-list">
+              {#each quizzes as quiz (quiz.id)}
+                <button
+                  type="button"
+                  class="quiz-card"
+                  class:active={selectedQuizId === quiz.id}
+                  aria-pressed={selectedQuizId === quiz.id}
+                  onclick={() => selectQuiz(quiz)}
+                >
+                  <span class="quiz-top">
+                    <span class="quiz-name">{quiz.name}</span>
+                    <span class="quiz-count label-mono">{quiz.questionCount} Fragen</span>
+                  </span>
+                  {#if quiz.description}
+                    <span class="quiz-desc">{quiz.description}</span>
+                  {/if}
+                  <span class="quiz-meta label-mono">
+                    {quiz.subject}{quiz.categories.length > 0 ? ` · ${quiz.categories.join(' · ')}` : ''}
+                  </span>
+                </button>
+              {/each}
+            </div>
+          {/if}
+          {#each quizErrors as error (error.file)}
+            <p class="hint warn">{error.file}: {error.message}</p>
+          {/each}
+        </fieldset>
+
+        <fieldset class="group">
           <legend class="field-label">Anzahl Fragen</legend>
           <div class="chips">
-            {#each QUESTION_COUNT_OPTIONS as option (option)}
+            {#each countOptions as option (option)}
               <button
                 type="button"
                 class="chip"
@@ -145,7 +214,13 @@
               </button>
             {/each}
           </div>
-          <p class="hint">Standard: 12 kuratierte Fragen quer durch alle Themenbereiche.</p>
+          <p class="hint">
+            {#if selectedQuiz}
+              Standard: {selectedQuiz.defaultCount} Fragen aus „{selectedQuiz.name}“.
+            {:else}
+              Zuerst ein Quiz auswählen.
+            {/if}
+          </p>
         </fieldset>
 
         <fieldset class="group">
@@ -220,7 +295,12 @@
           </span>
         </button>
 
-        <button type="button" class="btn btn-primary full big" onclick={createGame} disabled={creating}>
+        <button
+          type="button"
+          class="btn btn-primary full big"
+          onclick={createGame}
+          disabled={creating || !selectedQuizId}
+        >
           <Play size={20} strokeWidth={2.6} />
           {creating ? 'Erstelle …' : 'Quiz erstellen'}
         </button>
@@ -380,6 +460,69 @@
     font-size: 0.72rem;
     font-weight: 500;
     opacity: 0.75;
+  }
+
+  .quiz-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .quiz-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-radius: 0.9rem;
+    border: 1px solid var(--color-line-strong);
+    background: rgb(255 255 255 / 3%);
+    cursor: pointer;
+    transition:
+      border-color 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .quiz-card:hover {
+    border-color: var(--color-brand);
+  }
+
+  .quiz-card.active {
+    border-color: var(--color-brand);
+    background: linear-gradient(120deg, rgb(56 189 248 / 14%), rgb(167 139 250 / 10%));
+  }
+
+  .quiz-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .quiz-name {
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .quiz-count {
+    flex: none;
+  }
+
+  .quiz-desc {
+    font-size: 0.85rem;
+    color: var(--color-ink-muted);
+    line-height: 1.45;
+  }
+
+  .quiz-meta {
+    font-size: 0.68rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hint.warn {
+    color: #fca5a5;
   }
 
   .hint {

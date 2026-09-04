@@ -223,8 +223,8 @@
     {:else if phase === 'LOBBY'}
       <section class="lobby">
         <div class="lobby-main">
-          <p class="label-mono">Live-Quiz &middot; UML-Sequenzdiagramme</p>
-          <h1 class="headline hero-title"><span class="gradient-text">Sequence</span> Challenge</h1>
+          <p class="label-mono">Live-Quiz &middot; {room.totalRounds} Fragen</p>
+          <h1 class="headline hero-title gradient-text quiz-title">{room.quizName}</h1>
 
           <div class="join-grid">
             <div class="join-block">
@@ -355,7 +355,7 @@
         <div class="end-head">
           <Trophy size={30} strokeWidth={2.2} />
           <div>
-            <p class="label-mono">Endstand &middot; Raum {room.code}</p>
+            <p class="label-mono">{room.quizName} &middot; Raum {room.code}</p>
             <h1 class="headline hero-title small">Finale Rangliste</h1>
           </div>
           <button type="button" class="btn btn-primary new-game" onclick={() => navigate('/host')}>
@@ -564,6 +564,10 @@
   .hero-title {
     font-size: clamp(2rem, 6vw, 4.5rem);
     margin: 0.3rem 0 1rem;
+  }
+
+  .quiz-title {
+    font-size: clamp(1.8rem, 4.6vw, 3.6rem);
   }
 
   .hero-title.small {

@@ -14,7 +14,7 @@
     height={dimension}
     viewBox="0 0 48 48"
     role="img"
-    aria-label="Sequence Challenge Logo"
+    aria-label="Quiz App Logo"
     class="shrink-0"
   >
     <rect x="4" y="4" width="12" height="8" rx="2" fill="#38bdf8" opacity="0.9" />
@@ -36,7 +36,7 @@
       class:text-sm={size === 'md'}
       class:text-base={size === 'lg'}
     >
-      Sequence<span class="text-brand"> Challenge</span>
+      Quiz&nbsp;<span class="text-brand">App</span>
     </div>
     {#if subtitle}
       <div class="label-mono mt-1">{subtitle}</div>

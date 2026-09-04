@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { resolve } from 'node:path';
 
 function readInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? '', 10);
@@ -26,17 +27,34 @@ function resolvePublicBaseUrl(): string | null {
 
 function resolveHostSecret(): string {
   const secret = process.env.HOST_SECRET?.trim();
-  if (secret && secret.length >= 8) return secret;
+  // Bewusst nur "nicht leer": Ein manuell gesetztes Kurz-Secret ist erlaubt.
+  // Gegen Erraten schuetzt das Rate-Limit von 10 Login-Versuchen pro Minute und IP.
+  if (secret && secret.length >= 1) {
+    if (secret.length < 8) {
+      console.warn(`[config] HOST_SECRET ist sehr kurz (${secret.length} Zeichen). Fuer oeffentliche Server nicht empfohlen.`);
+    }
+    return secret;
+  }
 
   if (isProduction) {
     throw new Error(
-      'HOST_SECRET fehlt oder ist zu kurz (min. 8 Zeichen). Bitte in der .env setzen -- "make up" erzeugt automatisch einen Wert.',
+      'HOST_SECRET fehlt. Bitte in der .env setzen -- "make up" erzeugt automatisch einen Wert.',
     );
   }
 
   const generated = randomBytes(8).toString('hex');
   console.warn(`[config] Kein HOST_SECRET gesetzt. Entwicklungs-Secret: ${generated}`);
   return generated;
+}
+
+/**
+ * Verzeichnis mit den Quiz-Dateien. Im Container liegt es unter /app/quizzes,
+ * in der Entwicklung im Projektverzeichnis.
+ */
+function resolveQuizzesDir(): string {
+  const explicit = process.env.QUIZZES_DIR?.trim();
+  if (explicit) return explicit;
+  return resolve(process.cwd(), 'quizzes');
 }
 
 export const config = {
@@ -56,6 +74,8 @@ export const config = {
   hostTokenTtlMs: readInt(process.env.HOST_TOKEN_TTL_MINUTES, 480) * 60_000,
   /** Kulanz in ms, damit Netzwerklatenz keine gültige Antwort verwirft. */
   answerGraceMs: readInt(process.env.ANSWER_GRACE_MS, 750),
+  /** Verzeichnis mit den Quiz-Dateien (*.json). */
+  quizzesDir: resolveQuizzesDir(),
 } as const;
 
 export type AppConfig = typeof config;

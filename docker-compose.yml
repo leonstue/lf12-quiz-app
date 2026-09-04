@@ -1,4 +1,4 @@
-name: sequence-challenge
+name: quiz-app
 
 services:
   traefik:
@@ -8,7 +8,7 @@ services:
     # ausgeliefert wird nur das Traefik-Default-Zertifikat. Ab 3.6.1 handelt
     # Traefik die API-Version mit dem Daemon aus.
     image: ${TRAEFIK_IMAGE:-traefik:v3.6}
-    container_name: sequence-challenge-traefik
+    container_name: quiz-app-traefik
     restart: unless-stopped
     command:
       - --global.checknewversion=false
@@ -20,7 +20,7 @@ services:
       - --ping=true
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=sequence-challenge
+      - --providers.docker.network=quiz-app
       - --entrypoints.web.address=:80
       - --entrypoints.websecure.address=:443
       # HTTP -> HTTPS Redirect
@@ -39,7 +39,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     networks:
-      - sequence-challenge
+      - quiz-app
     healthcheck:
       test: ['CMD', 'traefik', 'healthcheck', '--ping']
       interval: 30s
@@ -50,8 +50,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sequence-challenge:latest
-    container_name: sequence-challenge-app
+    image: quiz-app:latest
+    container_name: quiz-app-app
     restart: unless-stopped
     environment:
       NODE_ENV: ${NODE_ENV:-production}
@@ -60,31 +60,34 @@ services:
       DOMAIN: ${DOMAIN:?DOMAIN fehlt in .env}
       HOST_SECRET: ${HOST_SECRET:?HOST_SECRET fehlt in .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      # Quizze vom Host: neue oder geaenderte JSON-Dateien wirken ohne Rebuild.
+      - ./quizzes:/app/quizzes:ro
     # Kein "ports"-Mapping: Der App-Port ist nur ueber Traefik erreichbar.
     expose:
       - '3000'
     networks:
-      - sequence-challenge
+      - quiz-app
     depends_on:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=sequence-challenge
-      - traefik.http.routers.sequence-challenge.rule=Host(`${DOMAIN}`)
-      - traefik.http.routers.sequence-challenge.entrypoints=websecure
-      - traefik.http.routers.sequence-challenge.tls=true
-      - traefik.http.routers.sequence-challenge.tls.certresolver=letsencrypt
-      - traefik.http.services.sequence-challenge.loadbalancer.server.port=3000
+      - traefik.docker.network=quiz-app
+      - traefik.http.routers.quiz-app.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.quiz-app.entrypoints=websecure
+      - traefik.http.routers.quiz-app.tls=true
+      - traefik.http.routers.quiz-app.tls.certresolver=letsencrypt
+      - traefik.http.services.quiz-app.loadbalancer.server.port=3000
       # WebSocket/Socket.IO: Upgrade-Header und Forwarded-Header durchreichen.
-      - traefik.http.middlewares.sequence-challenge-headers.headers.customrequestheaders.X-Forwarded-Proto=https
-      - traefik.http.routers.sequence-challenge.middlewares=sequence-challenge-headers@docker
+      - traefik.http.middlewares.quiz-app-headers.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.routers.quiz-app.middlewares=quiz-app-headers@docker
 
 networks:
-  sequence-challenge:
-    name: sequence-challenge
+  quiz-app:
+    name: quiz-app
     driver: bridge
 
 volumes:
   # Wird von "make down" und "make clean" bewusst NICHT entfernt.
   letsencrypt:
-    name: sequence-challenge-letsencrypt
+    name: quiz-app-letsencrypt

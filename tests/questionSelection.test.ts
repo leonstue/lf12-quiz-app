@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { selectQuestions, shuffle } from '../src/server/game/questionSelection.js';
-import { DEFAULT_QUESTION_IDS, QUESTIONS } from '../src/shared/questions.js';
 import { ANSWER_IDS } from '../src/shared/types.js';
+import { umlQuiz } from './helpers.js';
 
-describe('Fragenpool', () => {
+const QUESTIONS = umlQuiz.questions;
+const DEFAULT_QUESTION_IDS = umlQuiz.defaultQuestionIds;
+
+describe('Fragenpool (quizzes/uml-sequenzdiagramme.json)', () => {
   it('enthält 30 Fragen mit eindeutigen IDs', () => {
     expect(QUESTIONS).toHaveLength(30);
     expect(new Set(QUESTIONS.map((q) => q.id)).size).toBe(30);
@@ -62,14 +65,14 @@ describe('shuffle', () => {
 
 describe('selectQuestions', () => {
   it('nutzt standardmäßig die kuratierte Liste', () => {
-    const selected = selectQuestions({ count: 12, randomize: false });
+    const selected = selectQuestions({ count: 12, randomize: false, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS });
     expect(selected.map((q) => q.id)).toEqual([...DEFAULT_QUESTION_IDS]);
   });
 
   it('liefert die gewünschte Anzahl ohne Duplikate -- auch zufällig', () => {
     for (const count of [5, 10, 12, 15, 20, 30]) {
       for (const randomize of [false, true]) {
-        const selected = selectQuestions({ count, randomize });
+        const selected = selectQuestions({ count, randomize, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS });
         expect(selected).toHaveLength(count);
         expect(new Set(selected.map((q) => q.id)).size).toBe(count);
       }
@@ -77,28 +80,28 @@ describe('selectQuestions', () => {
   });
 
   it('füllt bei mehr als 12 Fragen duplikatfrei auf', () => {
-    const selected = selectQuestions({ count: 20, randomize: false });
+    const selected = selectQuestions({ count: 20, randomize: false, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS });
     expect(selected).toHaveLength(20);
     expect(new Set(selected.map((q) => q.id)).size).toBe(20);
     expect(selected.slice(0, 12).map((q) => q.id)).toEqual([...DEFAULT_QUESTION_IDS]);
   });
 
   it('begrenzt die Anzahl auf die Poolgröße', () => {
-    expect(selectQuestions({ count: 999, randomize: true })).toHaveLength(QUESTIONS.length);
-    expect(selectQuestions({ count: 999, randomize: false })).toHaveLength(QUESTIONS.length);
+    expect(selectQuestions({ count: 999, randomize: true, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS })).toHaveLength(QUESTIONS.length);
+    expect(selectQuestions({ count: 999, randomize: false, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS })).toHaveLength(QUESTIONS.length);
   });
 
   it('ist robust gegen unsinnige Anzahlen', () => {
-    expect(selectQuestions({ count: 0, randomize: false })).toHaveLength(1);
-    expect(selectQuestions({ count: -5, randomize: true })).toHaveLength(1);
-    expect(selectQuestions({ count: Number.NaN, randomize: false })).toHaveLength(1);
+    expect(selectQuestions({ count: 0, randomize: false, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS })).toHaveLength(1);
+    expect(selectQuestions({ count: -5, randomize: true, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS })).toHaveLength(1);
+    expect(selectQuestions({ count: Number.NaN, randomize: false, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS })).toHaveLength(1);
   });
 
   it('mischt bei randomize=true tatsächlich', () => {
-    const first = selectQuestions({ count: 30, randomize: true }).map((q) => q.id).join(',');
+    const first = selectQuestions({ count: 30, randomize: true, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS }).map((q) => q.id).join(',');
     const orders = new Set<string>();
     for (let i = 0; i < 20; i += 1) {
-      orders.add(selectQuestions({ count: 30, randomize: true }).map((q) => q.id).join(','));
+      orders.add(selectQuestions({ count: 30, randomize: true, pool: QUESTIONS, defaultIds: DEFAULT_QUESTION_IDS }).map((q) => q.id).join(','));
     }
     orders.add(first);
     expect(orders.size).toBeGreaterThan(1);

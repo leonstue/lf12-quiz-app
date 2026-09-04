@@ -3,6 +3,7 @@ import { config } from './config.js';
 import type { GameManager } from './game/GameManager.js';
 import { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
+import { QuizRegistry } from './quiz/loader.js';
 import { createSocketLayer } from './socket.js';
 
 const log = createLogger('server');
@@ -11,17 +12,28 @@ async function main(): Promise<void> {
   const hostAuth = new HostAuth(config.hostSecret, config.hostTokenTtlMs);
   hostAuth.startCleanup();
 
+  const quizzes = new QuizRegistry(config.quizzesDir);
+  quizzes.refresh(true);
+  if (quizzes.size === 0) {
+    log.warn('Kein Quiz gefunden -- der Host kann keine Session erstellen', { dir: config.quizzesDir });
+  } else {
+    log.info('Quizze geladen', {
+      dir: config.quizzesDir,
+      quizzes: quizzes.list().map((quiz) => `${quiz.id} (${quiz.questions.length})`),
+    });
+  }
+
   let games: GameManager | null = null;
-  const app = await buildApp({ hostAuth, getGames: () => games });
+  const app = await buildApp({ hostAuth, quizzes, getGames: () => games });
 
   // Fastify muss bereit sein, bevor Socket.IO sich an den HTTP-Server hängt.
   await app.ready();
-  const socketLayer = createSocketLayer(app.server, hostAuth);
+  const socketLayer = createSocketLayer(app.server, hostAuth, quizzes);
   games = socketLayer.games;
 
   await app.listen({ port: config.port, host: config.host });
 
-  log.info('Sequence Challenge gestartet', {
+  log.info('Quiz App gestartet', {
     url: `http://${config.host}:${config.port}`,
     env: config.nodeEnv,
     publicBaseUrl: config.publicBaseUrl ?? '(aus Browser-Origin abgeleitet)',

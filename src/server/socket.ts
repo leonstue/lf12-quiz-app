@@ -10,6 +10,7 @@ import { normalizeRoomCode } from './game/roomCode.js';
 import type { Room, RoomEmitter } from './game/Room.js';
 import type { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
+import type { QuizRegistry } from './quiz/loader.js';
 import { RateLimiter } from './rateLimit.js';
 
 const log = createLogger('socket');
@@ -40,7 +41,11 @@ export interface SocketLayer {
   games: GameManager;
 }
 
-export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): SocketLayer {
+export function createSocketLayer(
+  httpServer: HttpServer,
+  hostAuth: HostAuth,
+  quizzes: QuizRegistry,
+): SocketLayer {
   const io: QuizServer = new Server(httpServer, {
     path: '/socket.io',
     serveClient: false,
@@ -64,6 +69,7 @@ export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): S
 
   const games = new GameManager({
     emitter,
+    quizzes,
     publicBaseUrl: config.publicBaseUrl,
     maxRooms: config.maxRooms,
     maxPlayers: config.maxPlayersPerRoom,

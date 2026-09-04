@@ -48,9 +48,9 @@ export interface PlayerSession {
   nickname: string;
 }
 
-const SESSION_KEY = 'sc.player.session';
-const HOST_TOKEN_KEY = 'sc.host.token';
-const SOUND_KEY = 'sc.sound.enabled';
+const SESSION_KEY = 'qa.player.session';
+const HOST_TOKEN_KEY = 'qa.host.token';
+const SOUND_KEY = 'qa.sound.enabled';
 
 export function loadPlayerSession(): PlayerSession | null {
   const raw = readValue(SESSION_KEY);

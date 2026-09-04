@@ -6,6 +6,7 @@ import type {
   GameConfig,
   GamePhase,
   GameReview,
+  QuizDefinition,
   LeaderboardEntry,
   PendingAction,
   PersonalRoundResult,
@@ -90,8 +91,8 @@ export interface RoomOptions {
   maxPlayers?: number;
   answerGraceMs?: number;
   now?: () => number;
-  /** Alternativer Fragenpool (Tests). */
-  pool?: readonly QuizQuestion[];
+  /** Das gespielte Quiz -- liefert Fragenpool, Standardauswahl und Namen. */
+  quiz: QuizDefinition;
   autoRevealDelayMs?: number;
   autoNextDelayMs?: number;
 }
@@ -109,7 +110,7 @@ export class Room {
   private readonly maxPlayers: number;
   private readonly answerGraceMs: number;
   private readonly now: () => number;
-  private readonly pool?: readonly QuizQuestion[];
+  readonly quiz: QuizDefinition;
 
   private readonly players = new Map<string, Player>();
   private readonly tokenIndex = new Map<string, string>();
@@ -138,16 +139,17 @@ export class Room {
     this.maxPlayers = options.maxPlayers ?? 300;
     this.answerGraceMs = options.answerGraceMs ?? 750;
     this.now = options.now ?? (() => Date.now());
-    this.pool = options.pool;
+    this.quiz = options.quiz;
     this.autoRevealDelayMs = options.autoRevealDelayMs ?? AUTO_REVEAL_DELAY_MS;
     this.autoNextDelayMs = options.autoNextDelayMs ?? AUTO_NEXT_DELAY_MS;
-    this.config = normalizeConfig(options.config, options.pool?.length);
+    this.config = normalizeConfig(options.config, this.quiz.questions.length, this.quiz.id);
     this.createdAt = this.now();
     this.lastActivity = this.createdAt;
     this.questions = selectQuestions({
       count: this.config.questionCount,
       randomize: this.config.randomizeQuestions,
-      ...(this.pool ? { pool: this.pool } : {}),
+      pool: this.quiz.questions,
+      defaultIds: this.quiz.defaultQuestionIds,
     });
   }
 
@@ -671,6 +673,8 @@ export class Room {
     const showQuestion = this.phase !== 'LOBBY' && round !== null;
     return {
       code: this.code,
+      quizId: this.quiz.id,
+      quizName: this.quiz.name,
       phase: this.phase,
       playerCount: this.players.size,
       answeredCount: round?.answers.size ?? 0,
@@ -817,6 +821,7 @@ export class Room {
 
     return {
       code: this.code,
+      quizName: this.quiz.name,
       totalRounds: this.questions.length,
       playedRounds: playedRounds.length,
       rounds,
@@ -876,8 +881,8 @@ export class Room {
 }
 
 /** Begrenzt und normalisiert die vom Host geschickte Konfiguration. */
-export function normalizeConfig(raw: unknown, poolSize?: number): GameConfig {
-  const max = poolSize ?? 30;
+export function normalizeConfig(raw: unknown, poolSize: number, quizId: string): GameConfig {
+  const max = Math.max(1, poolSize);
   const input = (raw ?? {}) as Partial<GameConfig>;
 
   const rawCount = Number(input.questionCount);
@@ -889,6 +894,7 @@ export function normalizeConfig(raw: unknown, poolSize?: number): GameConfig {
       : 'standard';
 
   return {
+    quizId,
     questionCount,
     randomizeQuestions: input.randomizeQuestions === true,
     timerPreset,

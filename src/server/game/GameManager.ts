@@ -1,5 +1,6 @@
-import type { GameConfig } from '../../shared/types.js';
+import type { GameConfig, QuizDefinition } from '../../shared/types.js';
 import { createLogger } from '../logger.js';
+import type { QuizRegistry } from '../quiz/loader.js';
 import { Room, normalizeConfig, type RoomEmitter } from './Room.js';
 import { generateUniqueRoomCode, normalizeRoomCode } from './roomCode.js';
 
@@ -7,6 +8,7 @@ const log = createLogger('games');
 
 export interface GameManagerOptions {
   emitter: RoomEmitter;
+  quizzes: QuizRegistry;
   publicBaseUrl?: string | null;
   maxRooms?: number;
   maxPlayers?: number;
@@ -17,12 +19,16 @@ export interface GameManagerOptions {
 /** Hält alle laufenden Sessions im Speicher. Bewusst ohne Datenbank. */
 export class GameManager {
   private readonly rooms = new Map<string, Room>();
-  private readonly options: Required<Omit<GameManagerOptions, 'emitter'>> & { emitter: RoomEmitter };
+  private readonly options: Required<Omit<GameManagerOptions, 'emitter' | 'quizzes'>> & {
+    emitter: RoomEmitter;
+    quizzes: QuizRegistry;
+  };
   private sweeper: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: GameManagerOptions) {
     this.options = {
       emitter: options.emitter,
+      quizzes: options.quizzes,
       publicBaseUrl: options.publicBaseUrl ?? null,
       maxRooms: options.maxRooms ?? 50,
       maxPlayers: options.maxPlayers ?? 300,
@@ -35,6 +41,15 @@ export class GameManager {
     return this.rooms.size;
   }
 
+  /** Löst die gewünschte Quiz-id auf; ohne Treffer wird das erste Quiz verwendet. */
+  resolveQuiz(quizId: unknown): QuizDefinition {
+    const quiz = this.options.quizzes.get(quizId) ?? this.options.quizzes.first();
+    if (!quiz) {
+      throw new Error('Es ist kein Quiz verfügbar. Bitte eine JSON-Datei im Ordner "quizzes" ablegen.');
+    }
+    return quiz;
+  }
+
   createRoom(config: GameConfig): Room {
     if (this.rooms.size >= this.options.maxRooms) {
       this.sweep(true);
@@ -43,17 +58,19 @@ export class GameManager {
       throw new Error('Es sind bereits zu viele Quiz-Sessions aktiv.');
     }
 
+    const quiz = this.resolveQuiz((config as Partial<GameConfig> | undefined)?.quizId);
     const code = generateUniqueRoomCode((candidate) => this.rooms.has(candidate));
     const room = new Room({
       code,
-      config: normalizeConfig(config),
+      quiz,
+      config: normalizeConfig(config, quiz.questions.length, quiz.id),
       emitter: this.options.emitter,
       publicBaseUrl: this.options.publicBaseUrl,
       maxPlayers: this.options.maxPlayers,
       answerGraceMs: this.options.answerGraceMs,
     });
     this.rooms.set(code, room);
-    log.info('Raum erstellt', { room: code, config: room.config, rounds: room.totalRounds });
+    log.info('Raum erstellt', { room: code, quiz: quiz.id, config: room.config, rounds: room.totalRounds });
     return room;
   }
 
@@ -107,9 +124,10 @@ export class GameManager {
     this.stopSweeper();
   }
 
-  listRooms(): { code: string; phase: string; players: number; rounds: number }[] {
+  listRooms(): { code: string; quiz: string; phase: string; players: number; rounds: number }[] {
     return [...this.rooms.values()].map((room) => ({
       code: room.code,
+      quiz: room.quiz.id,
       phase: room.phase,
       players: room.playerCount,
       rounds: room.totalRounds,

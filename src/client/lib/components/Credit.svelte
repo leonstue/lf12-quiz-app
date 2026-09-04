@@ -11,7 +11,7 @@
 
 <p class="credit label-mono" class:center={align === 'center'}>
   {#if !compact}
-    <span>Sequence Challenge</span>
+    <span>Quiz App</span>
     <span class="sep" aria-hidden="true">&middot;</span>
   {/if}
   <span>&copy; {year} <span class="vendor">leonstue software</span></span>

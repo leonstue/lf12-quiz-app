@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { GameManager } from '../src/server/game/GameManager.js';
 import type { RoomEmitter } from '../src/server/game/Room.js';
+import { QuizRegistry } from '../src/server/quiz/loader.js';
 
 const noopEmitter: RoomEmitter = {
   toRoom() {},
@@ -10,11 +11,22 @@ const noopEmitter: RoomEmitter = {
 
 let managers: GameManager[] = [];
 
+const quizzes = new QuizRegistry('quizzes');
+
 function makeManager(options: Partial<ConstructorParameters<typeof GameManager>[0]> = {}): GameManager {
-  const manager = new GameManager({ emitter: noopEmitter, ...options });
+  const manager = new GameManager({ emitter: noopEmitter, quizzes, ...options });
   managers.push(manager);
   return manager;
 }
+
+const baseConfig = {
+  quizId: 'uml-sequenzdiagramme',
+  questionCount: 5,
+  randomizeQuestions: false,
+  timerPreset: 'standard',
+  autoAdvance: false,
+  autoRevealAnswers: false,
+} as const;
 
 afterEach(() => {
   for (const manager of managers) manager.destroyAll();
@@ -26,7 +38,7 @@ describe('GameManager', () => {
     const manager = makeManager({ maxRooms: 40 });
     const codes = new Set<string>();
     for (let i = 0; i < 30; i += 1) {
-      const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+      const room = manager.createRoom(baseConfig);
       expect(codes.has(room.code)).toBe(false);
       codes.add(room.code);
     }
@@ -35,7 +47,7 @@ describe('GameManager', () => {
 
   it('findet Räume unabhängig von der Schreibweise', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    const room = manager.createRoom(baseConfig);
     expect(manager.getRoom(room.code)?.code).toBe(room.code);
     expect(manager.getRoom(room.code.toLowerCase())?.code).toBe(room.code);
     expect(manager.getRoom(` ${room.code} `)?.code).toBe(room.code);
@@ -47,16 +59,16 @@ describe('GameManager', () => {
 
   it('begrenzt die Anzahl gleichzeitiger Räume', () => {
     const manager = makeManager({ maxRooms: 2 });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    manager.createRoom(baseConfig);
+    manager.createRoom(baseConfig);
     expect(() =>
-      manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false }),
+      manager.createRoom(baseConfig),
     ).toThrow();
   });
 
   it('schließt Räume und entfernt sie aus der Verwaltung', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    const room = manager.createRoom(baseConfig);
     expect(manager.closeRoom(room.code)).toBe(true);
     expect(manager.getRoom(room.code)).toBeUndefined();
     expect(manager.closeRoom(room.code)).toBe(false);
@@ -64,16 +76,22 @@ describe('GameManager', () => {
 
   it('räumt inaktive Räume auf', () => {
     const manager = makeManager({ roomTtlMs: -1 });
-    manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    manager.createRoom(baseConfig);
     expect(manager.sweep()).toBe(1);
     expect(manager.size).toBe(0);
   });
 
   it('listet aktive Räume auf', () => {
     const manager = makeManager();
-    const room = manager.createRoom({ questionCount: 5, randomizeQuestions: false, timerPreset: 'standard', autoAdvance: false, autoRevealAnswers: false });
+    const room = manager.createRoom(baseConfig);
     const list = manager.listRooms();
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ code: room.code, phase: 'LOBBY', players: 0, rounds: 5 });
+    expect(list[0]).toMatchObject({
+      code: room.code,
+      quiz: 'uml-sequenzdiagramme',
+      phase: 'LOBBY',
+      players: 0,
+      rounds: 5,
+    });
   });
 });

@@ -1,6 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { Room, normalizeConfig, type RoomEmitter } from '../src/server/game/Room.js';
-import { QUESTIONS } from '../src/shared/questions.js';
-import { ANSWER_IDS, type AnswerId, type GameConfig } from '../src/shared/types.js';
+import { parseQuiz } from '../src/server/quiz/loader.js';
+import { ANSWER_IDS, type AnswerId, type GameConfig, type QuizDefinition } from '../src/shared/types.js';
+
+/** Lädt ein Quiz aus dem Ordner `quizzes/` -- dieselbe Quelle wie im Betrieb. */
+export function loadQuizFixture(fileName: string): QuizDefinition {
+  const path = resolve(process.cwd(), 'quizzes', fileName);
+  return parseQuiz(JSON.parse(readFileSync(path, 'utf8')), fileName.replace(/\.json$/, ''));
+}
+
+export const umlQuiz = loadQuizFixture('uml-sequenzdiagramme.json');
 
 export interface Emitted {
   target: string;
@@ -42,11 +53,16 @@ export interface MakeRoomResult {
 export function createRoomFactory() {
   let rooms: Room[] = [];
 
-  function makeRoom(config: Partial<GameConfig> = {}, clock = new Clock()): MakeRoomResult {
+  function makeRoom(config: Partial<GameConfig> = {}, clock = new Clock(), quiz = umlQuiz): MakeRoomResult {
     const { emitter, events } = createEmitter();
     const room = new Room({
       code: 'TEST01',
-      config: normalizeConfig({ questionCount: 3, randomizeQuestions: false, timerPreset: 'standard', ...config }),
+      quiz,
+      config: normalizeConfig(
+        { questionCount: 3, randomizeQuestions: false, timerPreset: 'standard', ...config },
+        quiz.questions.length,
+        quiz.id,
+      ),
       emitter,
       now: clock.now,
       answerGraceMs: 500,
@@ -76,7 +92,9 @@ export function currentQuestionPayload(events: Emitted[]) {
  */
 export function correctDisplayId(room: Room, events: Emitted[]): AnswerId {
   const payload = currentQuestionPayload(events);
-  const original = QUESTIONS.find((question) => question.question === (room.getState().question?.question ?? ''));
+  const original = room.quiz.questions.find(
+    (question) => question.question === (room.getState().question?.question ?? ''),
+  );
   if (!original) throw new Error('Frage nicht gefunden');
   const correctText = original.answers.find((answer) => answer.id === original.correctAnswer)?.text;
   const match = payload.question.answers.find((answer) => answer.text === correctText);

@@ -23,15 +23,15 @@
   </header>
 
   <main class="hero">
-    <p class="label-mono kicker">UML &middot; Sequenzdiagramme &middot; Live-Quiz</p>
+    <p class="label-mono kicker">Live-Quiz &middot; Beamer &middot; Smartphone</p>
 
     <h1 class="headline title">
-      <span class="gradient-text">Sequence</span><br />Challenge
+      <span class="gradient-text">Quiz</span><br />App
     </h1>
 
     <p class="lead">
-      Ein Live-Quiz für die Unterrichtsstunde: Lifelines, Nachrichten, Combined Fragments. Der Host steuert vorne,
-      alle anderen spielen auf dem Smartphone mit.
+      Ein Live-Quiz für den Unterricht. Der Host wählt ein Quiz und steuert vorne am Beamer, alle anderen spielen
+      auf dem Smartphone mit — ohne Anmeldung, nur mit Raumcode und Nickname.
     </p>
 
     <div class="actions">
@@ -62,7 +62,7 @@
 
   <footer class="foot">
     <div class="foot-meta label-mono">
-      <span>30 Fragen im Pool</span>
+      <span>Quizze als JSON</span>
       <span class="dot">&bull;</span>
       <span>In-Memory Sessions</span>
       <span class="dot">&bull;</span>

@@ -1,15 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { Room, normalizeConfig } from '../src/server/game/Room.js';
-import { QUESTIONS } from '../src/shared/questions.js';
 import { ANSWER_IDS, type AnswerId } from '../src/shared/types.js';
 import {
   correctDisplayId,
   createEmitter,
   createRoomFactory,
   currentQuestionPayload,
+  umlQuiz,
   wrongDisplayId,
 } from './helpers.js';
+
+const QUESTIONS = umlQuiz.questions;
 
 const factory = createRoomFactory();
 const makeRoom = factory.makeRoom;
@@ -75,7 +77,13 @@ describe('Beitritt und Nicknames', () => {
 
   it('respektiert die maximale Teilnehmerzahl', () => {
     const { emitter } = createEmitter();
-    const room = new Room({ code: 'FULL01', config: normalizeConfig({}), emitter, maxPlayers: 2 });
+    const room = new Room({
+      code: 'FULL01',
+      quiz: umlQuiz,
+      config: normalizeConfig({}, umlQuiz.questions.length, umlQuiz.id),
+      emitter,
+      maxPlayers: 2,
+    });
     factory.track(room);
     expect(room.addPlayer('A1').ok).toBe(true);
     expect(room.addPlayer('B2').ok).toBe(true);
@@ -286,7 +294,7 @@ describe('Antwortreihenfolge', () => {
       expect(new Set(texts).size).toBe(4);
 
       const original = QUESTIONS.find((question) => question.id === '1');
-      expect(new Set(original?.answers.map((answer) => answer.text))).toEqual(new Set(texts));
+      expect(new Set(original?.answers.map((answer: { text: string }) => answer.text))).toEqual(new Set(texts));
 
       seenOrders.add(texts.join('|'));
       room.destroy();
@@ -503,7 +511,8 @@ describe('Leaderboard', () => {
 
 describe('normalizeConfig', () => {
   it('setzt sinnvolle Defaults', () => {
-    expect(normalizeConfig(undefined)).toEqual({
+    expect(normalizeConfig(undefined, 30, 'uml-sequenzdiagramme')).toEqual({
+      quizId: 'uml-sequenzdiagramme',
       questionCount: 12,
       randomizeQuestions: false,
       timerPreset: 'standard',
@@ -514,28 +523,38 @@ describe('normalizeConfig', () => {
 
   it('begrenzt und säubert manipulierte Werte', () => {
     expect(
-      normalizeConfig({ questionCount: 9999, randomizeQuestions: 'ja', timerPreset: 'turbo', autoAdvance: 'ja' }),
+      normalizeConfig(
+        { questionCount: 9999, randomizeQuestions: 'ja', timerPreset: 'turbo', autoAdvance: 'ja' },
+        30,
+        'uml-sequenzdiagramme',
+      ),
     ).toEqual({
+      quizId: 'uml-sequenzdiagramme',
       questionCount: 30,
       randomizeQuestions: false,
       timerPreset: 'standard',
       autoAdvance: false,
       autoRevealAnswers: false,
     });
-    expect(normalizeConfig({ questionCount: -5 }).questionCount).toBe(1);
-    expect(normalizeConfig({ questionCount: Number.NaN }).questionCount).toBe(12);
+    expect(normalizeConfig({ questionCount: -5 }, 30, 'x').questionCount).toBe(1);
+    expect(normalizeConfig({ questionCount: Number.NaN }, 30, 'x').questionCount).toBe(12);
   });
 
   it('übernimmt gültige Werte', () => {
     expect(
-      normalizeConfig({
-        questionCount: 15,
-        randomizeQuestions: true,
-        timerPreset: 'fast',
-        autoAdvance: true,
-        autoRevealAnswers: true,
-      }),
+      normalizeConfig(
+        {
+          questionCount: 15,
+          randomizeQuestions: true,
+          timerPreset: 'fast',
+          autoAdvance: true,
+          autoRevealAnswers: true,
+        },
+        30,
+        'uml-sequenzdiagramme',
+      ),
     ).toEqual({
+      quizId: 'uml-sequenzdiagramme',
       questionCount: 15,
       randomizeQuestions: true,
       timerPreset: 'fast',

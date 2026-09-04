@@ -60,7 +60,7 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `sequence-challenge-${review.code}.csv`;
+    link.download = `quiz-app-${review.code}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();

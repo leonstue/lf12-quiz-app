@@ -1,0 +1,832 @@
+{
+  "id": "uml-sequenzdiagramme",
+  "name": "UML-Sequenzdiagramme",
+  "description": "Lifelines, synchrone und asynchrone Nachrichten, Lebenszyklus von Objekten und Combined Fragments.",
+  "subject": "Software Engineering",
+  "defaultQuestionIds": [
+    "1",
+    "2",
+    "4",
+    "6",
+    "7",
+    "8",
+    "13",
+    "14",
+    "17",
+    "19",
+    "23",
+    "29"
+  ],
+  "questions": [
+    {
+      "id": "1",
+      "category": "Grundlagen",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was ist die Hauptaufgabe eines Sequenzdiagramms?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Die zeitliche Reihenfolge der Kommunikation zwischen Beteiligten darzustellen"
+        },
+        {
+          "id": "B",
+          "text": "Die Beziehungen und Attribute von Klassen zu modellieren"
+        },
+        {
+          "id": "C",
+          "text": "Den Ablauf einer Interaktion ausschließlich als Zustandsfolge darzustellen"
+        },
+        {
+          "id": "D",
+          "text": "Zu dokumentieren, welches Teammitglied bei einem Fehler zuerst angerufen wird"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Sequenzdiagramme stellen Interaktionen mit Fokus auf der zeitlichen Reihenfolge ausgetauschter Nachrichten zwischen Beteiligten dar."
+    },
+    {
+      "id": "2",
+      "category": "Grundlagen",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "In welche Richtung schreitet die Zeit in einem klassischen Sequenzdiagramm fort?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Von links nach rechts"
+        },
+        {
+          "id": "B",
+          "text": "Von oben nach unten"
+        },
+        {
+          "id": "C",
+          "text": "Vom Empfänger zurück zum Sender"
+        },
+        {
+          "id": "D",
+          "text": "In Richtung des Services mit der höchsten Latenz"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Die Zeitachse verläuft senkrecht von oben nach unten. Horizontal werden lediglich die beteiligten Lifelines nebeneinander angeordnet."
+    },
+    {
+      "id": "3",
+      "category": "Grundlagen",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Wofür steht eine Lifeline?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Für einen Teilnehmer innerhalb der dargestellten Interaktion"
+        },
+        {
+          "id": "B",
+          "text": "Für die chronologische Reihenfolge aller Nachrichten des Systems"
+        },
+        {
+          "id": "C",
+          "text": "Ausschließlich für die Lebensdauer eines Servers"
+        },
+        {
+          "id": "D",
+          "text": "Für die verbleibende Zeit bis zum nächsten Deployment"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Eine Lifeline repräsentiert einen an der Interaktion beteiligten Teilnehmer und dessen Existenz über die Zeitachse hinweg."
+    },
+    {
+      "id": "4",
+      "category": "Notation",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was zeigt eine Execution Specification bzw. ein Aktivierungsbalken?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Dass ein Teilnehmer gerade Verhalten ausführt"
+        },
+        {
+          "id": "B",
+          "text": "Dass ein Teilnehmer grundsätzlich im System existiert"
+        },
+        {
+          "id": "C",
+          "text": "Dass eine Nachricht asynchron ist"
+        },
+        {
+          "id": "D",
+          "text": "Wann ein Service besonders beschäftigt aussieht"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Der Balken auf der Lifeline markiert den Zeitraum, in dem der Teilnehmer aktiv Verhalten ausführt. Die bloße Existenz zeigt bereits die Lifeline selbst."
+    },
+    {
+      "id": "5",
+      "category": "Grundlagen",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Welche Aussage zu Teilnehmern eines Sequenzdiagramms ist richtig?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Nur Menschen dürfen Teilnehmer sein"
+        },
+        {
+          "id": "B",
+          "text": "Teilnehmer können z. B. Personen, Objekte oder Softwaresysteme repräsentieren"
+        },
+        {
+          "id": "C",
+          "text": "Jeder Teilnehmer muss während des gesamten Diagramms existieren"
+        },
+        {
+          "id": "D",
+          "text": "Jeder Teilnehmer benötigt einen eigenen Microservice"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Teilnehmer sind beliebige interagierende Einheiten: Akteure, Objektinstanzen, Komponenten oder ganze Fremdsysteme. Sie können außerdem erst später entstehen oder vorzeitig zerstört werden."
+    },
+    {
+      "id": "6",
+      "category": "Nachrichten",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was kennzeichnet einen synchronen Aufruf?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Der Sender wartet auf die Rückkehr bzw. Beendigung des Aufrufs"
+        },
+        {
+          "id": "B",
+          "text": "Sender und Empfänger müssen auf demselben Rechner laufen"
+        },
+        {
+          "id": "C",
+          "text": "Die Nachricht darf keinen Rückgabewert besitzen"
+        },
+        {
+          "id": "D",
+          "text": "Beide Systeme synchronisieren vorher ihre Systemzeit"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Synchron heißt: Der Sender blockiert, bis der Aufruf beendet ist. Notiert wird das mit einer durchgezogenen Linie und gefüllter Pfeilspitze."
+    },
+    {
+      "id": "7",
+      "category": "Nachrichten",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was kennzeichnet einen asynchronen Aufruf?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Der Empfänger darf niemals antworten"
+        },
+        {
+          "id": "B",
+          "text": "Der Sender muss nicht auf die Beendigung der Verarbeitung warten"
+        },
+        {
+          "id": "C",
+          "text": "Er darf nur zwischen externen Systemen verwendet werden"
+        },
+        {
+          "id": "D",
+          "text": "Die Nachricht wird grundsätzlich erst später nachts verarbeitet"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Bei einer asynchronen Nachricht arbeitet der Sender sofort weiter. Eine Antwort ist möglich, aber nicht erforderlich. Notation: durchgezogene Linie mit offener Pfeilspitze."
+    },
+    {
+      "id": "8",
+      "category": "Notation",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Welche Darstellung gehört typischerweise zu einer Reply-Nachricht?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Durchgezogene Linie mit gefüllter Pfeilspitze"
+        },
+        {
+          "id": "B",
+          "text": "Durchgezogene Linie mit offener Pfeilspitze"
+        },
+        {
+          "id": "C",
+          "text": "Gestrichelte Nachrichtenlinie"
+        },
+        {
+          "id": "D",
+          "text": "Eine zweite Lifeline für den Rückweg"
+        }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Antworten werden gestrichelt mit offener Pfeilspitze gezeichnet. Durchgezogen plus gefüllt steht für synchron, durchgezogen plus offen für asynchron."
+    },
+    {
+      "id": "9",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Die SmartCity-App ruft preisBerechnen() auf und benötigt den Preis, bevor sie fortfahren kann. Welche Nachrichtenart ist sinnvoll?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Synchron"
+        },
+        {
+          "id": "B",
+          "text": "Asynchron"
+        },
+        {
+          "id": "C",
+          "text": "Create Message"
+        },
+        {
+          "id": "D",
+          "text": "Destroy Message"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Der Aufrufer benötigt das Ergebnis unmittelbar für den weiteren Ablauf, muss also auf die Antwort warten. Das ist genau die Semantik eines synchronen Aufrufs."
+    },
+    {
+      "id": "10",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Ein Notification-Service soll nach dem Ticketkauf eine Push-Mitteilung versenden. Der Ticketkauf soll nicht darauf warten.",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Synchroner Aufruf"
+        },
+        {
+          "id": "B",
+          "text": "Asynchroner Aufruf"
+        },
+        {
+          "id": "C",
+          "text": "Reply"
+        },
+        {
+          "id": "D",
+          "text": "Create Message"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Der Kaufprozess ist nicht vom Versandergebnis abhängig und darf nicht blockieren. Genau dafür ist die asynchrone Nachricht gedacht."
+    },
+    {
+      "id": "11",
+      "category": "Nachrichten",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was beschreibt ein Nachrichtenpfeil grundsätzlich?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Kommunikation bzw. das Übermitteln einer Nachricht zwischen Beteiligten"
+        },
+        {
+          "id": "B",
+          "text": "Automatisch einen REST-Aufruf"
+        },
+        {
+          "id": "C",
+          "text": "Ausschließlich einen Methodenaufruf innerhalb derselben Anwendung"
+        },
+        {
+          "id": "D",
+          "text": "Die bevorzugte Fluchtrichtung bei einem Produktionsfehler"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Eine Nachricht ist zunächst nur Kommunikation zwischen zwei Lifelines. Ob dahinter ein Methodenaufruf, ein HTTP-Request oder eine Queue steckt, legt die Notation nicht fest."
+    },
+    {
+      "id": "12",
+      "category": "Notation",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Muss jeder synchrone Aufruf zwingend durch eine explizit eingezeichnete Reply-Nachricht ergänzt werden?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Ja, immer"
+        },
+        {
+          "id": "B",
+          "text": "Nein, eine Reply kann in der Darstellung weggelassen werden"
+        },
+        {
+          "id": "C",
+          "text": "Nur bei Methoden ohne Rückgabewert"
+        },
+        {
+          "id": "D",
+          "text": "Nur bei externen Systemen"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Die Rückkehr ist bei einem synchronen Aufruf ohnehin impliziert. Die Reply wird nur eingezeichnet, wenn der zurückgegebene Wert für das Verständnis wichtig ist."
+    },
+    {
+      "id": "13",
+      "category": "Lebenszyklus",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Ein Ticket wird erst nach erfolgreicher Zahlung erzeugt. Wo sollte seine Lifeline beginnen?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Am oberen Rand des Diagramms"
+        },
+        {
+          "id": "B",
+          "text": "An der Stelle seiner Erzeugung"
+        },
+        {
+          "id": "C",
+          "text": "Beim ersten späteren Zugriff"
+        },
+        {
+          "id": "D",
+          "text": "Dort, wo im Diagramm noch Platz ist"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Objekte, die erst während der Interaktion entstehen, werden tiefer gesetzt: Der Kopf der Lifeline steht auf Höhe der Create Message."
+    },
+    {
+      "id": "14",
+      "category": "Lebenszyklus",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was kennzeichnet ein X am Ende einer Lifeline?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Einen fehlgeschlagenen Methodenaufruf"
+        },
+        {
+          "id": "B",
+          "text": "Die Zerstörung bzw. das Ende der Objektinstanz"
+        },
+        {
+          "id": "C",
+          "text": "Einen ungültigen Guard"
+        },
+        {
+          "id": "D",
+          "text": "Eine Exception"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Das X (Destruction Occurrence) markiert das Lebensende des Teilnehmers. Danach kann er keine Nachrichten mehr senden oder empfangen."
+    },
+    {
+      "id": "15",
+      "category": "Lebenszyklus",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Was ist bei einer Create Message besonders?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Sie erzeugt eine neue Objektinstanz, deren Lifeline dort beginnt"
+        },
+        {
+          "id": "B",
+          "text": "Sie muss immer von einem Actor ausgehen"
+        },
+        {
+          "id": "C",
+          "text": "Sie darf nur innerhalb eines alt-Fragments verwendet werden"
+        },
+        {
+          "id": "D",
+          "text": "Sie legt automatisch auch die passende Datenbanktabelle an"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Die Create Message zeigt gestrichelt auf den Kopf der neuen Lifeline. Damit ist im Diagramm sichtbar, ab wann das Objekt überhaupt existiert."
+    },
+    {
+      "id": "16",
+      "category": "Lebenszyklus",
+      "difficulty": 3,
+      "durationSeconds": 25,
+      "question": "Ein eingelöstes Ticket bleibt aus Nachweisgründen in der Datenbank. Kann die dargestellte Ticket-Objektinstanz trotzdem zerstört werden?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Nein, Destroy bedeutet zwingend Löschen des Datensatzes"
+        },
+        {
+          "id": "B",
+          "text": "Ja, Objektlebensdauer und Persistenz eines Datensatzes sind nicht dasselbe"
+        },
+        {
+          "id": "C",
+          "text": "Nur wenn gleichzeitig die Datenbank-Lifeline zerstört wird"
+        },
+        {
+          "id": "D",
+          "text": "Nur wenn vorher ein Backup erstellt wurde"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Das Diagramm modelliert die Laufzeitinstanz. Deren Ende sagt nichts darüber aus, ob die zugehörigen Daten weiterhin gespeichert bleiben."
+    },
+    {
+      "id": "17",
+      "category": "Combined Fragments",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Was ist [Zahlung erfolgreich]?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Eine Guard-Bedingung"
+        },
+        {
+          "id": "B",
+          "text": "Der Name einer Nachricht"
+        },
+        {
+          "id": "C",
+          "text": "Eine Execution Specification"
+        },
+        {
+          "id": "D",
+          "text": "Eine Rückgabe"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Ausdrücke in eckigen Klammern sind Guards. Sie stehen am Beginn eines Operanden und legen fest, wann dieser Bereich durchlaufen wird."
+    },
+    {
+      "id": "18",
+      "category": "Combined Fragments",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Was entscheidet ein Guard?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Unter welcher Bedingung der zugehörige Interaktionsbereich gilt"
+        },
+        {
+          "id": "B",
+          "text": "Wie lange ein Aktivierungsbalken dauert"
+        },
+        {
+          "id": "C",
+          "text": "Welche Lifeline zuerst gezeichnet wird"
+        },
+        {
+          "id": "D",
+          "text": "Welche Nachricht die höchste Priorität bekommt"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Der Guard ist eine boolesche Bedingung für genau einen Operanden eines Combined Fragments. Trifft sie nicht zu, wird dieser Bereich nicht ausgeführt."
+    },
+    {
+      "id": "19",
+      "category": "Combined Fragments",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Welcher Operator modelliert klassisches \"wenn ... sonst ...\"?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "opt"
+        },
+        {
+          "id": "B",
+          "text": "alt"
+        },
+        {
+          "id": "C",
+          "text": "par"
+        },
+        {
+          "id": "D",
+          "text": "maybe"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "alt (alternatives) besitzt mehrere durch Guards getrennte Operanden, von denen genau einer ausgeführt wird. Einen Operator \"maybe\" gibt es in der UML nicht."
+    },
+    {
+      "id": "20",
+      "category": "Combined Fragments",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Wann eignet sich opt?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Wenn genau einer von zwei alternativen Abläufen stattfinden muss"
+        },
+        {
+          "id": "B",
+          "text": "Wenn ein Ablauf nur unter einer Bedingung optional stattfindet"
+        },
+        {
+          "id": "C",
+          "text": "Wenn mehrere Abläufe gleichzeitig stattfinden"
+        },
+        {
+          "id": "D",
+          "text": "Wenn die Implementierung ebenfalls optional ist"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "opt hat genau einen Operanden: Er wird ausgeführt oder eben nicht. Ein Sonst-Zweig existiert im Gegensatz zu alt nicht."
+    },
+    {
+      "id": "21",
+      "category": "Combined Fragments",
+      "difficulty": 1,
+      "durationSeconds": 20,
+      "question": "Welcher Operator beschreibt eine Wiederholung?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "loop"
+        },
+        {
+          "id": "B",
+          "text": "alt"
+        },
+        {
+          "id": "C",
+          "text": "par"
+        },
+        {
+          "id": "D",
+          "text": "again"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "loop wiederholt seinen Operanden. Die Anzahl kann über Grenzen oder eine Guard-Bedingung angegeben werden, etwa loop [solange Plätze frei]."
+    },
+    {
+      "id": "22",
+      "category": "Combined Fragments",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Wann eignet sich par?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Wenn mehrere Abläufe parallel bzw. unabhängig ablaufen können"
+        },
+        {
+          "id": "B",
+          "text": "Wenn genau eine Alternative gewählt wird"
+        },
+        {
+          "id": "C",
+          "text": "Wenn ein Ablauf mehrfach wiederholt wird"
+        },
+        {
+          "id": "D",
+          "text": "Wenn mehrere Entwickler gleichzeitig am Diagramm arbeiten"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "par sagt aus, dass die Operanden nebenläufig ablaufen dürfen. Ihre Nachrichten können sich zeitlich beliebig verschränken."
+    },
+    {
+      "id": "23",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Ein QR-Code soll erzeugt und gleichzeitig eine Bestätigungsnachricht vorbereitet werden. Welches Fragment passt am besten?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "loop"
+        },
+        {
+          "id": "B",
+          "text": "opt"
+        },
+        {
+          "id": "C",
+          "text": "par"
+        },
+        {
+          "id": "D",
+          "text": "alt"
+        }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Beide Teilabläufe sind voneinander unabhängig und dürfen sich zeitlich überlappen. Das ist der klassische Einsatzfall für par."
+    },
+    {
+      "id": "24",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Eine Zahlung darf maximal drei Mal versucht werden.",
+      "answers": [
+        {
+          "id": "A",
+          "text": "loop [maximal 3 Versuche]"
+        },
+        {
+          "id": "B",
+          "text": "par [3]"
+        },
+        {
+          "id": "C",
+          "text": "Drei verschachtelte alt-Fragmente"
+        },
+        {
+          "id": "D",
+          "text": "Das Diagramm dreimal kopieren"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Wiederholung mit Obergrenze ist genau die Aufgabe von loop. Die Begrenzung wird über Grenzwerte oder eine Guard-Bedingung notiert."
+    },
+    {
+      "id": "25",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Ein Rabatt wird nur angewendet, wenn ein gültiger Gutschein existiert.",
+      "answers": [
+        {
+          "id": "A",
+          "text": "alt"
+        },
+        {
+          "id": "B",
+          "text": "opt [Gutschein gültig]"
+        },
+        {
+          "id": "C",
+          "text": "par"
+        },
+        {
+          "id": "D",
+          "text": "loop"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Es gibt nur einen bedingten Zweig und keinen definierten Gegenzweig. Damit ist opt die passende und schlankere Wahl gegenüber alt."
+    },
+    {
+      "id": "26",
+      "category": "Anwendung",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Welche Reihenfolge ist für einen Ticketkauf am plausibelsten?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Ticket anzeigen, zahlen, Strecke auswählen, Preis berechnen"
+        },
+        {
+          "id": "B",
+          "text": "Strecke auswählen, Preis berechnen, Zahlung, Ticket bereitstellen"
+        },
+        {
+          "id": "C",
+          "text": "Zahlung, Strecke auswählen, Ticket, Preis"
+        },
+        {
+          "id": "D",
+          "text": "Ticket zuerst ausgeben und später prüfen, ob bezahlt wurde"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Jeder Schritt benötigt das Ergebnis des vorherigen: ohne Strecke kein Preis, ohne Preis keine Zahlung, ohne Zahlung kein gültiges Ticket."
+    },
+    {
+      "id": "27",
+      "category": "Analyse",
+      "difficulty": 3,
+      "durationSeconds": 25,
+      "question": "PayPal bestätigt eine Zahlung, anschließend meldet der Ticket-Service einen Fehler. Was kann ein Sequenzdiagramm besonders gut zeigen?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Dass der Fehler zwingend bei PayPal liegt"
+        },
+        {
+          "id": "B",
+          "text": "Welche Kommunikation bis zum Fehler bereits stattgefunden hat"
+        },
+        {
+          "id": "C",
+          "text": "Die konkrete fehlerhafte Codezeile"
+        },
+        {
+          "id": "D",
+          "text": "Welcher Entwickler den Fehler verursacht hat"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Das Diagramm macht den Kommunikationsverlauf und den erreichten Zustand sichtbar. Es zeigt damit, welche Schritte bereits erfolgreich waren, aber keine Implementierungsdetails."
+    },
+    {
+      "id": "28",
+      "category": "Analyse",
+      "difficulty": 3,
+      "durationSeconds": 25,
+      "question": "Eine Antwort des Ticket-Service wird im Diagramm oberhalb des Aufrufs dargestellt, der diese Antwort erst auslöst. Was ist problematisch?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Nichts"
+        },
+        {
+          "id": "B",
+          "text": "Die dargestellte zeitliche Reihenfolge ist widersprüchlich"
+        },
+        {
+          "id": "C",
+          "text": "Nur die Pfeilfarbe ist falsch"
+        },
+        {
+          "id": "D",
+          "text": "Der Service antwortet offenbar präventiv"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Weil die Zeit von oben nach unten läuft, würde die Antwort vor ihrer Ursache liegen. Die Reply muss unterhalb des zugehörigen Aufrufs stehen."
+    },
+    {
+      "id": "29",
+      "category": "Combined Fragments",
+      "difficulty": 2,
+      "durationSeconds": 20,
+      "question": "Welche Modellierung passt am besten zu: Ticket gültig / Ticket bereits eingelöst / Ticket abgelaufen?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "par mit drei Operanden"
+        },
+        {
+          "id": "B",
+          "text": "alt mit drei Guard-Bedingungen"
+        },
+        {
+          "id": "C",
+          "text": "Drei loops hintereinander"
+        },
+        {
+          "id": "D",
+          "text": "Alle drei Ergebnisse gleichzeitig an den Busfahrer schicken"
+        }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Die drei Fälle schließen sich gegenseitig aus, genau einer tritt ein. Das ist die Semantik von alt mit je einem Guard pro Operand."
+    },
+    {
+      "id": "30",
+      "category": "Methodik",
+      "difficulty": 3,
+      "durationSeconds": 25,
+      "question": "Was ist beim Erstellen eines komplexeren Sequenzdiagramms eine sinnvolle Vorgehensweise?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Teilnehmer bestimmen, Nachrichten und Reihenfolge modellieren, anschließend Sonderfälle strukturieren"
+        },
+        {
+          "id": "B",
+          "text": "Erst Pfeile zeichnen und anschließend Teilnehmer dazwischen setzen"
+        },
+        {
+          "id": "C",
+          "text": "Zuerst möglichst viele Combined Fragments verwenden"
+        },
+        {
+          "id": "D",
+          "text": "Das Diagramm möglichst groß machen, damit Fehler schwerer auffallen"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Zuerst den Normalfall mit den Beteiligten und ihrer Kommunikation aufbauen, danach Varianten und Fehlerfälle mit alt, opt oder loop ergänzen."
+    }
+  ]
+}
