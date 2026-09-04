@@ -43,22 +43,21 @@ cd sequence-challenge
 make up
 ```
 
-Beim allerersten Aufruf legt `make up` die `.env` an, erzeugt ein `HOST_SECRET` und bricht
-mit einem Hinweis ab, weil die Beispiel-Domain noch eingetragen ist:
+Beim ersten Aufruf legt `make up` die `.env` aus `.env.example` an, erzeugt ein
+`HOST_SECRET` und startet durch — die Domain **mycardbox.de** ist bereits hinterlegt.
 
-```
-Bitte DOMAIN in .env auf deine echte Domain setzen.
-```
+Danach läuft alles unter <https://mycardbox.de>. `make up` gibt am Ende die öffentliche
+URL, die Host-URL und das `HOST_SECRET` aus.
 
-Dann:
+Soll eine andere Domain verwendet werden, vor dem ersten `make up`:
 
 ```bash
-nano .env       # DOMAIN=quiz.example.de  ->  DOMAIN=deine-domain.de
+nano .env       # DOMAIN=mycardbox.de  ->  DOMAIN=deine-domain.de
 make up
 ```
 
-Danach läuft alles unter `https://DEINE-DOMAIN`. `make up` gibt am Ende die öffentliche
-URL, die Host-URL und das `HOST_SECRET` aus.
+Steht in der `.env` noch die Platzhalter-Domain `quiz.example.de` oder gar keine, bricht
+`make up` mit einem erklärenden Hinweis ab.
 
 ---
 
@@ -91,7 +90,7 @@ Ein **A-Record** (und bei IPv6 zusätzlich ein **AAAA-Record**) der Domain muss 
 HTTP-01-Challenge fehl und es gibt kein Zertifikat.
 
 ```bash
-dig +short quiz.deine-domain.de
+dig +short mycardbox.de
 ```
 
 ### Firewall
@@ -114,15 +113,13 @@ Der App-Port 3000 wird **nicht** nach außen veröffentlicht — die App ist aus
 ```bash
 git clone <REPOSITORY-URL> sequence-challenge
 cd sequence-challenge
-make up          # legt .env an, erzeugt HOST_SECRET, bricht wegen Beispiel-Domain ab
-nano .env        # DOMAIN eintragen
-make up          # baut Images und startet den Stack
+make up          # legt .env an, erzeugt HOST_SECRET, baut und startet
 ```
 
 Aufrufen:
 
-- Teilnehmer: `https://DEINE-DOMAIN`
-- Host: `https://DEINE-DOMAIN/host`
+- Teilnehmer: <https://mycardbox.de>
+- Host: <https://mycardbox.de/host>
 
 Das erste Zertifikat kann 30–60 Sekunden dauern. Fortschritt beobachten:
 
@@ -134,18 +131,21 @@ make logs
 
 ## Welche Domain muss ich eintragen?
 
-Genau **eine** Stelle: `DOMAIN` in der Datei `.env` im Projektverzeichnis.
+Standardmäßig **keine** — `.env.example` enthält bereits `mycardbox.de`, und `make up`
+kopiert die Datei beim ersten Start nach `.env`.
+
+Für eine andere Domain: `DOMAIN` in der Datei `.env` im Projektverzeichnis.
 
 ```dotenv
-DOMAIN=quiz.example.de     # <- hier deine echte Domain eintragen
+DOMAIN=mycardbox.de     # <- hier gegebenenfalls anpassen
 ```
 
 Diese Variable wird an drei Stellen verwendet:
 
 1. Traefik-Router-Regel `Host(...)` — bestimmt, für welchen Hostnamen ausgeliefert wird.
 2. Let's Encrypt — für welchen Namen das Zertifikat ausgestellt wird.
-3. Die App — baut daraus die Join-Adresse und den QR-Code (`https://DOMAIN/join/CODE`),
-   die in der Lobby auf dem Beamer stehen.
+3. Die App — baut daraus die Join-Adresse und den QR-Code
+   (`https://mycardbox.de/join/CODE`), die in der Lobby auf dem Beamer stehen.
 
 `ACME_EMAIL` ist bereits auf `leon.stuempeley@gmx.de` vorbelegt und muss nicht geändert
 werden.
@@ -451,7 +451,7 @@ für diese Runde vorbei. Ab der nächsten Frage ist der Teilnehmer wieder voll d
 
 | Variable      | Standard                   | Bedeutung                                     |
 | ------------- | -------------------------- | --------------------------------------------- |
-| `DOMAIN`      | `quiz.example.de`          | **muss** angepasst werden                     |
+| `DOMAIN`      | `mycardbox.de`             | öffentliche Domain der Anwendung              |
 | `ACME_EMAIL`  | `leon.stuempeley@gmx.de`   | Kontakt für Let's Encrypt                     |
 | `HOST_SECRET` | leer                       | wird von `make up` erzeugt                    |
 | `NODE_ENV`    | `production`               | Laufzeitmodus                                 |
@@ -616,8 +616,11 @@ Bewusste Entscheidungen, keine offenen Baustellen:
    per WebAudio. Browser starten Audio erst nach der ersten Nutzerinteraktion — auf der
    Beameransicht also nach dem ersten Klick oder Tastendruck. Abschaltbar über den
    Lautsprecher-Button.
-9. **Genau eine Domain.** Der Traefik-Router ist auf `Host(DOMAIN)` gebunden. Für weitere
-   Namen (z. B. `www.`) müsste die Regel in der `docker-compose.yml` erweitert werden.
+9. **Genau eine Domain.** Der Traefik-Router ist auf `Host(DOMAIN)` gebunden, also auf
+   `mycardbox.de`. `www.mycardbox.de` wird **nicht** mit ausgeliefert. Wer das möchte,
+   erweitert die Router-Regel in der `docker-compose.yml` auf
+   ``Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)`` — dann muss aber auch ein DNS-Record für
+   `www` existieren, sonst scheitert die ACME-Challenge für diesen Namen.
 10. **Kein IPv6-Zwang.** Ein AAAA-Record funktioniert, ist aber nicht erforderlich.
 
 ---
