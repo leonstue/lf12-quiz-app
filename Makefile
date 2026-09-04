@@ -141,12 +141,13 @@ doctor:
 	EXISTING=$$($(COMPOSE) ps -aq 2>/dev/null | wc -l | tr -d ' ')
 	echo ""
 	if [ "$$RUNNING" = "0" ]; then 	  echo "  =========================================================="; 	  if [ "$$EXISTING" = "0" ]; then 	    echo "   Es laeuft KEIN Container -- der Stack wurde nie gestartet"; 	    echo "   oder mit 'make down' beendet."; 	  else 	    echo "   Alle Container sind BEENDET. Letzte Logzeilen:"; 	  fi; 	  echo ""; 	  echo "   Naechster Schritt:   make up"; 	  echo "  =========================================================="; 	  echo ""; 	  if [ "$$EXISTING" != "0" ]; then 	    $(COMPOSE) logs --tail=25 2>/dev/null | sed 's/^/  /'; 	    echo ""; 	  fi; 	fi
-	echo "--- 2. Docker-API (haeufigste Fehlerquelle) ---"
+	echo "--- 2. Docker-API und Traefik-Version (haeufigste Fehlerquelle) ---"
 	SRV=$$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo '?')
 	MIN=$$(docker version --format '{{.Server.MinAPIVersion}}' 2>/dev/null || echo '?')
 	echo "  Daemon-API: $$SRV   Minimum: $$MIN"
-	echo "  Traefik nutzt DOCKER_API_VERSION=$$(docker inspect sequence-challenge-traefik --format '{{json .Config.Env}}' 2>/dev/null | tr ',' '\n' | grep DOCKER_API_VERSION | cut -d= -f2 | tr -d '"]' || echo '(nicht gesetzt)')"
-	if $(COMPOSE) logs traefik 2>/dev/null | grep -q 'is too old'; then 	  echo "  FEHLER: Traefik kann die Docker-API nicht sprechen -- es entstehen KEINE Router."; 	  echo "          Abhilfe: DOCKER_API_VERSION in docker-compose.yml erhoehen, dann 'make up'."; 	else 	  echo "  ok: keine API-Versionsfehler im Traefik-Log"; 	fi
+	TV=$$($(COMPOSE) exec -T traefik traefik version 2>/dev/null | awk '/^Version:/{print $$2}')
+	echo "  Traefik:    $${TV:-(nicht ermittelbar)}   (noetig: >= 3.6.1)"
+	if $(COMPOSE) logs traefik 2>/dev/null | grep -q 'is too old'; then 	  echo ""; 	  echo "  FEHLER: Traefik kann die Docker-API nicht sprechen."; 	  echo "          Es entstehen KEINE Router -- jede Anfrage landet beim Default-Zertifikat."; 	  echo "          Traefik vor 3.6.1 pinnt die Docker-API auf 1.24; Docker Engine 29"; 	  echo "          verlangt mindestens $$MIN. DOCKER_API_VERSION hilft nicht, die"; 	  echo "          Variable wird von Traefik ignoriert."; 	  echo ""; 	  echo "          Abhilfe:  git pull && make up      (nutzt traefik:v3.6)"; 	else 	  echo "  ok: keine API-Versionsfehler im Traefik-Log"; 	fi
 	echo ""
 	echo "--- 3. Router-Labels am App-Container ---"
 	docker inspect sequence-challenge-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container laeuft nicht"

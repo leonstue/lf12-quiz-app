@@ -474,9 +474,9 @@ Standardwerten):
 
 Zusätzlich für Traefik (ebenfalls in der `.env` setzbar):
 
-| Variable             | Standard | Bedeutung                                                                     |
-| -------------------- | -------- | ----------------------------------------------------------------------------- |
-| `DOCKER_API_VERSION` | `1.41`   | Docker-API-Version, die Traefik spricht — siehe [Fehlersuche](#fehlersuche)    |
+| Variable         | Standard       | Bedeutung                                                          |
+| ---------------- | -------------- | ------------------------------------------------------------------ |
+| `TRAEFIK_IMAGE`  | `traefik:v3.6` | Traefik-Image; **mindestens 3.6.1** wegen der Docker-API-Aushandlung |
 
 ---
 
@@ -526,13 +526,24 @@ Zertifikat**. Die häufigsten Ursachen:
 1. **Traefik kann die Docker-API nicht sprechen.** Im Log steht dann
    `client version 1.24 is too old. Minimum supported API version is 1.40`. Traefik liest
    in diesem Fall überhaupt keine Container-Labels — es entsteht kein einziger Router und
-   jede Anfrage landet beim Default-Zertifikat. Deshalb setzt die `docker-compose.yml` für
-   Traefik `DOCKER_API_VERSION` (Standard `1.41`). Bei einer sehr neuen Docker Engine kann
-   ein höherer Wert nötig sein; den unterstützten Bereich zeigt `docker version`
-   (Feld *API version* bzw. *Minimum API version*). Gesetzt wird er über die `.env`:
+   jede Anfrage landet beim Default-Zertifikat.
+
+   Ursache: Traefik **vor 3.6.1** pinnt die Docker-API hart auf Version 1.24. Docker
+   Engine 29 hat die unterstützte Mindestversion angehoben und lehnt das ab. Die
+   Umgebungsvariable `DOCKER_API_VERSION` hilft **nicht** — Traefik ignoriert sie.
+
+   Deshalb verwendet die `docker-compose.yml` `traefik:v3.6`; ab 3.6.1 handelt Traefik die
+   API-Version mit dem Daemon aus. Eine andere Version lässt sich über die `.env` setzen:
 
    ```dotenv
-   DOCKER_API_VERSION=1.44
+   TRAEFIK_IMAGE=traefik:v3.6.25
+   ```
+
+   Wer Traefik nicht aktualisieren kann, senkt alternativ die Mindestversion des Daemons
+   in `/etc/docker/daemon.json` und startet Docker neu:
+
+   ```json
+   { "min-api-version": "1.24" }
    ```
 
 2. **DNS zeigt nicht auf diesen Server.** `make doctor` vergleicht den A-Record mit der
