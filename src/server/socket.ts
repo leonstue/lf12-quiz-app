@@ -126,7 +126,7 @@ export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): S
           return;
         }
 
-        const result = room.addPlayer(data.nickname);
+        const result = room.addPlayer(data.nickname, socket.id);
         if (!result.ok) {
           safeAck(ack, result);
           return;
@@ -166,7 +166,7 @@ export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): S
           safeAck(ack, errorResult('ROOM_NOT_FOUND', 'Der Raum existiert nicht mehr.'));
           return;
         }
-        const result = room.reconnectPlayer(data.playerToken);
+        const result = room.reconnectPlayer(data.playerToken, socket.id);
         if (!result.ok) {
           safeAck(ack, result);
           return;
@@ -336,7 +336,9 @@ export function createSocketLayer(httpServer: HttpServer, hostAuth: HostAuth): S
     socket.on('disconnect', (reason) => {
       const { roomCode, playerId, isHost } = socket.data;
       if (roomCode && playerId && !isHost) {
-        games.getRoom(roomCode)?.markDisconnected(playerId);
+        // socket.id mitgeben: Ein bereits abgeloester Socket darf den
+        // inzwischen wieder verbundenen Spieler nicht offline schalten.
+        games.getRoom(roomCode)?.markDisconnected(playerId, socket.id);
       }
       log.debug('Socket getrennt', { socket: socket.id, reason });
     });

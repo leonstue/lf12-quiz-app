@@ -163,6 +163,78 @@ describe('Reconnect', () => {
     expect(restored.data.streak).toBe(1);
   });
 
+  it('ignoriert die verspaetete Trennung des alten Sockets nach einem Reconnect', () => {
+    const { room, events } = makeRoom();
+    const join = room.addPlayer('Lisa', 'socket-alt');
+    if (!join.ok) throw new Error('unerwartet');
+
+    // Handy verbindet sich neu, bevor der Server den alten Socket ausgetimet hat.
+    room.reconnectPlayer(join.data.token, 'socket-neu');
+    expect(join.data.connected).toBe(true);
+
+    // Jetzt laeuft der alte Socket in den Ping-Timeout.
+    const before = events.length;
+    room.markDisconnected(join.data.id, 'socket-alt');
+
+    expect(join.data.connected).toBe(true);
+    expect(events.slice(before).some((entry) => entry.event === 'player_left')).toBe(false);
+  });
+
+  it('markiert den Spieler als getrennt, wenn der aktuelle Socket wegfaellt', () => {
+    const { room } = makeRoom();
+    const join = room.addPlayer('Lisa', 'socket-alt');
+    if (!join.ok) throw new Error('unerwartet');
+
+    room.markDisconnected(join.data.id, 'socket-alt');
+    expect(join.data.connected).toBe(false);
+  });
+
+  it('behaelt Punkte und Streak ueber eine Trennung hinweg', () => {
+    const { room, events, clock } = makeRoom({ questionCount: 3 });
+    const join = room.addPlayer('Lisa', 'socket-alt');
+    if (!join.ok) throw new Error('unerwartet');
+
+    room.start();
+    const correct = correctDisplayId(room, events);
+    clock.advance(1_500);
+    room.submitAnswer(join.data.id, 0, correct);
+    room.reveal();
+
+    const score = join.data.score;
+    expect(score).toBeGreaterThan(0);
+
+    room.markDisconnected(join.data.id, 'socket-alt');
+    expect(join.data.connected).toBe(false);
+    expect(join.data.score).toBe(score);
+
+    const restored = room.reconnectPlayer(join.data.token, 'socket-neu');
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.data.connected).toBe(true);
+    expect(restored.data.score).toBe(score);
+    expect(restored.data.streak).toBe(1);
+  });
+
+  it('stellt eine bereits abgegebene Antwort nach dem Reconnect wieder her', () => {
+    const { room, events } = makeRoom();
+    const join = room.addPlayer('Lisa', 'socket-alt');
+    if (!join.ok) throw new Error('unerwartet');
+
+    room.start();
+    const correct = correctDisplayId(room, events);
+    room.submitAnswer(join.data.id, 0, correct);
+
+    room.markDisconnected(join.data.id, 'socket-alt');
+    room.reconnectPlayer(join.data.token, 'socket-neu');
+
+    // Der Server kennt die Wahl weiterhin -- der Client bekommt sie nachgeliefert.
+    expect(room.getSubmittedAnswer(join.data.id)).toBe(correct);
+    // Und es darf keine zweite Antwort geben.
+    const second = room.submitAnswer(join.data.id, 0, wrongDisplayId(correct));
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.error.code).toBe('ALREADY_ANSWERED');
+  });
+
   it('lehnt unbekannte Token ab', () => {
     const { room } = makeRoom();
     for (const token of ['', 'kurz', 'ein-voellig-falsches-token', null, undefined, 1234]) {

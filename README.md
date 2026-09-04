@@ -304,7 +304,7 @@ Der Client sendet ausschließlich „ich wähle B“ — nie Punkte, nie Zeitste
 │       ├── types.ts                Domänentypen
 │       ├── events.ts               Socket.IO-Eventtypen
 │       └── questions.ts            30 Fragen inklusive Erklärungen
-├── tests/                          Vitest (8 Dateien, 100 Tests)
+├── tests/                          Vitest (8 Dateien, 104 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -418,10 +418,30 @@ gemischt** — die Buchstaben A–D bezeichnen dabei immer die angezeigte Positi
 
 ### Reconnect
 
-Beim Beitritt erhält jeder Teilnehmer einen zufälligen `playerToken`, der im
-localStorage liegt. Nach einem Reload oder einer kurzen WLAN-Unterbrechung meldet sich der
-Client automatisch mit diesem Token an und bekommt Nickname, Punktestand, Streak, die
-laufende Runde und eine bereits abgegebene Antwort zurück.
+Beim Beitritt erhält jeder Teilnehmer einen zufälligen `playerToken`, der im localStorage
+liegt. Nach einem Reload oder einer WLAN-Unterbrechung meldet sich der Client automatisch
+mit diesem Token wieder an (`reconnection: true`, unbegrenzte Versuche, 0,6–4 s Abstand).
+
+Wiederhergestellt werden dabei:
+
+- Nickname, Punktestand, Streak und Platzierung
+- die laufende Runde inklusive Frage, Antwortoptionen und verbleibender Zeit
+- eine in dieser Runde bereits abgegebene Antwort (eine zweite ist weiterhin ausgeschlossen)
+- bei laufender Auflösung das persönliche Rundenergebnis, bei Rangliste das Leaderboard
+
+Ein getrennter Teilnehmer wird **nicht** aus dem Raum entfernt. Er bleibt mit Punktestand
+in der Wertung, wird für eine verpasste Frage wie eine falsche Antwort behandelt und kann
+jederzeit zurückkommen — es gibt kein Zeitlimit für den Reconnect. In der Host-Ansicht
+erscheint er währenddessen ausgegraut.
+
+Der Server bindet die aktuelle Socket-Verbindung an den Teilnehmer. Verbindet sich ein
+Handy neu, bevor der Server die alte Verbindung ausgetimet hat (Ping-Timeout 25 s), wird
+die verspätete Trennung des alten Sockets ignoriert — der Teilnehmer bleibt korrekt als
+online geführt.
+
+**Was ein Reconnect nicht kann**: Der Countdown des Servers läuft während des Ausfalls
+weiter. Dauert die Unterbrechung länger als die Restzeit der Frage, ist die Antwortchance
+für diese Runde vorbei. Ab der nächsten Frage ist der Teilnehmer wieder voll dabei.
 
 ---
 
@@ -523,7 +543,7 @@ Im Produktionsmodus verweigert der Server ohne `HOST_SECRET` den Start.
 npm test
 ```
 
-100 Tests in 8 Dateien decken ab:
+104 Tests in 8 Dateien decken ab:
 
 - **Punkteberechnung** — Basis, Grenzwerte, Ganzzahligkeit, keine negativen Punkte
 - **Zeitbonus** — linear, geklemmt, robust gegen `NaN` und Dauer 0
@@ -536,6 +556,8 @@ npm test
 - **Host-Autorisierung** — Secret-Vergleich, Token-Ausgabe, Ablauf, Widerruf
 - **Fragenauswahl** — duplikatfrei, korrekte Anzahl, Standardliste, Mischen
 - **Fragenpool-Konsistenz** — je vier Antworten, genau eine Lösung, Erklärung vorhanden
+- **Reconnect** — Punkte, Streak und abgegebene Antwort überleben eine Trennung; die
+  verspätete Trennung eines abgelösten Sockets schaltet den Teilnehmer nicht offline
 - **Robustheit** — manipulierte Socket-Payloads führen zu Fehlerantworten, nicht zu Abstürzen
 
 ---

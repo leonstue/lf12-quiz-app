@@ -38,6 +38,12 @@ export interface Player {
   connected: boolean;
   joinedAt: number;
   lastSeen: number;
+  /**
+   * Aktuell zugeordnete Socket-Verbindung. Nach einem Reconnect gehoert der
+   * Spieler einem NEUEN Socket -- der alte laeuft erst nach dem Ping-Timeout
+   * ab und darf den Spieler dann nicht mehr als offline markieren.
+   */
+  socketId: string | null;
 }
 
 interface SubmittedAnswer {
@@ -144,7 +150,7 @@ export class Room {
     return id ? this.players.get(id) : undefined;
   }
 
-  addPlayer(rawNickname: unknown): RoomResult<Player> {
+  addPlayer(rawNickname: unknown, socketId: string | null = null): RoomResult<Player> {
     if (this.phase !== 'LOBBY') {
       return fail('GAME_ALREADY_STARTED', 'Das Quiz läuft bereits. Ein Beitritt ist nicht mehr möglich.');
     }
@@ -177,6 +183,7 @@ export class Room {
       connected: true,
       joinedAt: this.now(),
       lastSeen: this.now(),
+      socketId,
     };
 
     this.players.set(player.id, player);
@@ -190,7 +197,7 @@ export class Room {
     return { ok: true, data: player };
   }
 
-  reconnectPlayer(token: unknown): RoomResult<Player> {
+  reconnectPlayer(token: unknown, socketId: string | null = null): RoomResult<Player> {
     if (typeof token !== 'string' || token.length < 8) {
       return fail('UNKNOWN_PLAYER', 'Ungültiges Spieler-Token.');
     }
@@ -199,16 +206,27 @@ export class Room {
       return fail('UNKNOWN_PLAYER', 'Die Sitzung ist abgelaufen. Bitte erneut beitreten.');
     }
     player.connected = true;
+    player.socketId = socketId;
     player.lastSeen = this.now();
     this.touch();
     this.broadcastState();
     return { ok: true, data: player };
   }
 
-  markDisconnected(playerId: string): void {
+  /**
+   * Markiert einen Spieler als getrennt. `socketId` ist die Verbindung, die sich
+   * gerade verabschiedet: Gehoert sie nicht mehr zum Spieler (weil er sich
+   * zwischenzeitlich neu verbunden hat), passiert nichts.
+   */
+  markDisconnected(playerId: string, socketId: string | null = null): void {
     const player = this.players.get(playerId);
     if (!player) return;
+    if (socketId !== null && player.socketId !== null && player.socketId !== socketId) {
+      log.debug('Veraltete Trennung ignoriert', { room: this.code, socket: socketId });
+      return;
+    }
     player.connected = false;
+    player.socketId = null;
     player.lastSeen = this.now();
     this.emitter.toRoom(this.code, 'player_left', { playerId, playerCount: this.players.size });
     this.broadcastState();
