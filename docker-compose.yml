@@ -1,0 +1,85 @@
+name: sequence-challenge
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: sequence-challenge-traefik
+    restart: unless-stopped
+    command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --log.level=INFO
+      - --accesslog=false
+      # Dashboard und API bleiben aus -- nichts oeffentlich exponiert.
+      - --api=false
+      - --ping=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=sequence-challenge
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # HTTP -> HTTPS Redirect
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      # Let's Encrypt (HTTP-01 Challenge ueber den web-Entrypoint)
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:?ACME_EMAIL fehlt in .env}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - sequence-challenge
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sequence-challenge:latest
+    container_name: sequence-challenge-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: '3000'
+      HOST_BIND: '0.0.0.0'
+      DOMAIN: ${DOMAIN:?DOMAIN fehlt in .env}
+      HOST_SECRET: ${HOST_SECRET:?HOST_SECRET fehlt in .env}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    # Kein "ports"-Mapping: Der App-Port ist nur ueber Traefik erreichbar.
+    expose:
+      - '3000'
+    networks:
+      - sequence-challenge
+    depends_on:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=sequence-challenge
+      - traefik.http.routers.sequence-challenge.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.sequence-challenge.entrypoints=websecure
+      - traefik.http.routers.sequence-challenge.tls=true
+      - traefik.http.routers.sequence-challenge.tls.certresolver=letsencrypt
+      - traefik.http.services.sequence-challenge.loadbalancer.server.port=3000
+      # WebSocket/Socket.IO: Upgrade-Header und Forwarded-Header durchreichen.
+      - traefik.http.middlewares.sequence-challenge-headers.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.routers.sequence-challenge.middlewares=sequence-challenge-headers@docker
+
+networks:
+  sequence-challenge:
+    name: sequence-challenge
+    driver: bridge
+
+volumes:
+  # Wird von "make down" und "make clean" bewusst NICHT entfernt.
+  letsencrypt:
+    name: sequence-challenge-letsencrypt

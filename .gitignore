@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build-Artefakte
+dist/
+.vite/
+*.tsbuildinfo
+
+# Umgebung -- enthaelt HOST_SECRET und die Domain
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test-Artefakte
+coverage/
