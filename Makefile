@@ -136,8 +136,11 @@ doctor:
 	echo "=============================================================="
 	echo ""
 	echo "--- 1. Container ---"
-	$(COMPOSE) ps || true
+	$(COMPOSE) ps -a || true
+	RUNNING=$$($(COMPOSE) ps -q 2>/dev/null | wc -l | tr -d ' ')
+	EXISTING=$$($(COMPOSE) ps -aq 2>/dev/null | wc -l | tr -d ' ')
 	echo ""
+	if [ "$$RUNNING" = "0" ]; then 	  echo "  =========================================================="; 	  if [ "$$EXISTING" = "0" ]; then 	    echo "   Es laeuft KEIN Container -- der Stack wurde nie gestartet"; 	    echo "   oder mit 'make down' beendet."; 	  else 	    echo "   Alle Container sind BEENDET. Letzte Logzeilen:"; 	  fi; 	  echo ""; 	  echo "   Naechster Schritt:   make up"; 	  echo "  =========================================================="; 	  echo ""; 	  if [ "$$EXISTING" != "0" ]; then 	    $(COMPOSE) logs --tail=25 2>/dev/null | sed 's/^/  /'; 	    echo ""; 	  fi; 	fi
 	echo "--- 2. Docker-API (haeufigste Fehlerquelle) ---"
 	SRV=$$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo '?')
 	MIN=$$(docker version --format '{{.Server.MinAPIVersion}}' 2>/dev/null || echo '?')
@@ -174,7 +177,13 @@ doctor:
 	echo "--- 8. Traefik-Log (ACME und Fehler) ---"
 	$(COMPOSE) logs --tail=300 traefik 2>/dev/null | grep -iE 'acme|certificate|error|unable|challenge' | tail -20 | sed 's/^/  /' || echo "  keine Treffer"
 	echo ""
-	echo "--- 9. App ---"
+	echo "--- 9. Images und Ressourcen ---"
+	docker image ls sequence-challenge --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  erstellt {{.CreatedSince}}' 2>/dev/null | head -3 || true
+	if [ -z "$$(docker image ls -q sequence-challenge 2>/dev/null)" ]; then echo "  App-Image fehlt -- 'make up' baut es (dauert beim ersten Mal einige Minuten)."; fi
+	echo "  Speicher: $$(free -m 2>/dev/null | awk '/^Mem:/{print $$2" MB gesamt, "$$7" MB verfuegbar"}' || echo '?')"
+	echo "  Platte:   $$(df -h / 2>/dev/null | awk 'NR==2{print $$4" frei von "$$2}' || echo '?')"
+	echo ""
+	echo "--- 10. App ---"
 	$(COMPOSE) exec -T app node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(d=>console.log('  /api/health ->', JSON.stringify(d))).catch(e=>console.log('  App antwortet nicht:', e.message))" 2>/dev/null || echo "  App-Container nicht erreichbar"
 	echo ""
 
