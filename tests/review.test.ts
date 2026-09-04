@@ -153,3 +153,67 @@ describe('Auswertung', () => {
     expect(review.rounds[0].fastestCorrect).toBeNull();
   });
 });
+
+describe('Kategorie-Auswertung', () => {
+  it('fasst die Runden je Kategorie zusammen', () => {
+    const { room, events, clock } = makeRoom({ questionCount: 3 });
+    const a = room.addPlayer('Anna');
+    const b = room.addPlayer('Bert');
+    if (!a.ok || !b.ok) throw new Error('unerwartet');
+
+    room.start();
+    for (let round = 0; round < 3; round += 1) {
+      if (round > 0) room.next();
+      const correct = correctDisplayId(room, events);
+      clock.advance(500);
+      room.submitAnswer(a.data.id, round, correct);
+      room.submitAnswer(b.data.id, round, wrongDisplayId(correct));
+      if (round === 2) room.reveal();
+    }
+
+    const review = room.buildReview();
+    expect(review.categories.length).toBeGreaterThan(0);
+
+    // Summen müssen zu den Runden passen.
+    const questionSum = review.categories.reduce((sum, entry) => sum + entry.questionCount, 0);
+    const answeredSum = review.categories.reduce((sum, entry) => sum + entry.answered, 0);
+    const correctSum = review.categories.reduce((sum, entry) => sum + entry.correct, 0);
+    expect(questionSum).toBe(review.playedRounds);
+    expect(answeredSum).toBe(review.rounds.reduce((sum, round) => sum + round.answeredCount, 0));
+    expect(correctSum).toBe(review.rounds.reduce((sum, round) => sum + round.correctCount, 0));
+
+    // Genau eine von zwei Antworten war je Runde richtig.
+    for (const entry of review.categories) {
+      expect(entry.percent).toBe(50);
+    }
+  });
+
+  it('sortiert absteigend nach Trefferquote', () => {
+    const { room } = makeRoom({ questionCount: 3 });
+    room.addPlayer('Anna');
+    room.start();
+    room.reveal();
+
+    const percents = room.buildReview().categories.map((entry) => entry.percent);
+    expect([...percents].sort((x, y) => y - x)).toEqual(percents);
+  });
+
+  it('meldet 0 Prozent statt Division durch null, wenn niemand geantwortet hat', () => {
+    const { room } = makeRoom({ questionCount: 1 });
+    room.addPlayer('Anna');
+    room.start();
+    room.reveal();
+
+    const stats = room.buildReview().categories;
+    expect(stats).toHaveLength(1);
+    expect(stats[0].answered).toBe(0);
+    expect(stats[0].percent).toBe(0);
+  });
+
+  it('ist vor der ersten Auflösung leer', () => {
+    const { room } = makeRoom();
+    room.addPlayer('Anna');
+    room.start();
+    expect(room.buildReview().categories).toEqual([]);
+  });
+});

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 
-import { ANSWER_IDS, QUESTION_COUNT_OPTIONS } from '../../shared/types.js';
+import { MAX_ANSWERS, MIN_ANSWERS, QUESTION_COUNT_OPTIONS, answerIdsFor } from '../../shared/types.js';
 import type { AnswerId, Difficulty, QuizDefinition, QuizQuestion, QuizSummary } from '../../shared/types.js';
 import { createLogger } from '../logger.js';
 
@@ -36,6 +36,29 @@ function parseDifficulty(value: unknown, field: string): Difficulty {
   fail(`"${field}" muss 1, 2 oder 3 sein.`);
 }
 
+/**
+ * Bildpfad relativ zu `quizzes/media/`. Bewusst eng gefasst: keine absoluten
+ * Pfade, kein Verlassen des Verzeichnisses, nur harmlose Zeichen.
+ */
+function parseImagePath(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  const path = requireString(value, field, { max: 200 });
+
+  if (path.startsWith('/') || path.startsWith('\\') || /^[a-z]:/i.test(path)) {
+    fail(`"${field}" muss ein relativer Pfad innerhalb von quizzes/media sein.`);
+  }
+  if (path.split(/[\\/]/).some((segment) => segment === '..')) {
+    fail(`"${field}" darf das Verzeichnis nicht verlassen.`);
+  }
+  if (!/^[\w./-]+$/.test(path)) {
+    fail(`"${field}" enthält unzulässige Zeichen. Erlaubt sind Buchstaben, Ziffern, . _ - und /.`);
+  }
+  if (!/\.(png|jpe?g|gif|webp|avif|svg)$/i.test(path)) {
+    fail(`"${field}" muss auf .png, .jpg, .gif, .webp, .avif oder .svg enden.`);
+  }
+  return path.replace(/\\/g, '/');
+}
+
 function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQuestion {
   if (typeof raw !== 'object' || raw === null) fail(`Frage ${index + 1} ist kein Objekt.`);
   const input = raw as Record<string, unknown>;
@@ -47,14 +70,19 @@ function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQ
 
   const difficulty = parseDifficulty(input.difficulty ?? 1, `${where}.difficulty`);
 
-  if (!Array.isArray(input.answers) || input.answers.length !== ANSWER_IDS.length) {
-    fail(`${where}: es müssen genau ${ANSWER_IDS.length} Antworten angegeben sein.`);
+  if (
+    !Array.isArray(input.answers) ||
+    input.answers.length < MIN_ANSWERS ||
+    input.answers.length > MAX_ANSWERS
+  ) {
+    fail(`${where}: es müssen ${MIN_ANSWERS} bis ${MAX_ANSWERS} Antworten angegeben sein.`);
   }
 
+  const expectedIds = answerIdsFor(input.answers.length);
   const answers = input.answers.map((answer, position) => {
     if (typeof answer !== 'object' || answer === null) fail(`${where}: Antwort ${position + 1} ist kein Objekt.`);
     const entry = answer as Record<string, unknown>;
-    const expected = ANSWER_IDS[position];
+    const expected = expectedIds[position];
     const answerId = requireString(entry.id ?? expected, `${where}.answers[${position}].id`, { max: 1 });
     if (answerId !== expected) {
       fail(`${where}: Antwort ${position + 1} muss die id "${expected}" haben (gefunden: "${answerId}").`);
@@ -66,8 +94,8 @@ function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQ
   if (texts.size !== answers.length) fail(`${where}: die Antworttexte müssen sich unterscheiden.`);
 
   const correctAnswer = requireString(input.correctAnswer, `${where}.correctAnswer`, { max: 1 });
-  if (!ANSWER_IDS.includes(correctAnswer as AnswerId)) {
-    fail(`${where}: "correctAnswer" muss ${ANSWER_IDS.join(", ")} sein.`);
+  if (!expectedIds.includes(correctAnswer as AnswerId)) {
+    fail(`${where}: "correctAnswer" muss ${expectedIds.join(', ')} sein.`);
   }
 
   const rawDuration = input.durationSeconds;
@@ -84,6 +112,8 @@ function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQ
     category: requireString(input.category ?? 'Allgemein', `${where}.category`, { max: 60 }),
     difficulty,
     question: requireString(input.question, `${where}.question`, { max: 500 }),
+    image: parseImagePath(input.image, `${where}.image`),
+    imageAlt: input.imageAlt === undefined ? null : requireString(input.imageAlt, `${where}.imageAlt`, { max: 300 }),
     answers,
     correctAnswer: correctAnswer as AnswerId,
     explanation: requireString(input.explanation, `${where}.explanation`, { max: 1000 }),

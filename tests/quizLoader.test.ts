@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -83,10 +83,25 @@ describe('parseQuiz', () => {
     expect(() => parseQuiz('kein objekt', 'x')).toThrow();
   });
 
-  it('verlangt genau vier Antworten mit den ids A bis D', () => {
-    const threeAnswers = question({ answers: [{ id: 'A', text: 'a' }, { id: 'B', text: 'b' }, { id: 'C', text: 'c' }] });
-    expect(() => parseQuiz(quiz({ questions: [threeAnswers] }), 'x')).toThrow(/genau 4 Antworten/);
+  it('akzeptiert 2 bis 6 Antworten und lehnt alles andere ab', () => {
+    const withAnswers = (texts: string[], correct = 'A') =>
+      quiz({
+        questions: [
+          question({
+            answers: texts.map((text, index) => ({ id: 'ABCDEF'[index], text })),
+            correctAnswer: correct,
+          }),
+        ],
+      });
 
+    expect(parseQuiz(withAnswers(['a', 'b']), 'x').questions[0].answers).toHaveLength(2);
+    expect(parseQuiz(withAnswers(['a', 'b', 'c', 'd', 'e', 'f']), 'x').questions[0].answers).toHaveLength(6);
+
+    expect(() => parseQuiz(withAnswers(['a']), 'x')).toThrow(/2 bis 6 Antworten/);
+    expect(() => parseQuiz(withAnswers(['a', 'b', 'c', 'd', 'e', 'f', 'g']), 'x')).toThrow(/2 bis 6 Antworten/);
+  });
+
+  it('verlangt die ids A, B, C ... in dieser Reihenfolge', () => {
     const wrongIds = question({
       answers: [
         { id: 'A', text: 'a' },
@@ -133,6 +148,41 @@ describe('parseQuiz', () => {
   it('lehnt unbrauchbare ids ab', () => {
     expect(() => parseQuiz(quiz({ id: 'mit leerzeichen' }), 'x')).toThrow(/id/);
     expect(() => parseQuiz(quiz({ id: '../etc/passwd' }), 'x')).toThrow(/id/);
+  });
+});
+
+describe('Bilder', () => {
+  it('übernimmt einen relativen Pfad und die Bildbeschreibung', () => {
+    const parsed = parseQuiz(
+      quiz({ questions: [question({ image: 'diagramme/ablauf.png', imageAlt: 'Ein Ablauf' })] }),
+      'x',
+    );
+    expect(parsed.questions[0].image).toBe('diagramme/ablauf.png');
+    expect(parsed.questions[0].imageAlt).toBe('Ein Ablauf');
+  });
+
+  it('lässt das Bild weg, wenn nichts angegeben ist', () => {
+    const parsed = parseQuiz(quiz(), 'x');
+    expect(parsed.questions[0].image).toBeNull();
+    expect(parsed.questions[0].imageAlt).toBeNull();
+  });
+
+  it('lehnt Pfade ab, die das Verzeichnis verlassen', () => {
+    for (const bad of ['../geheim.png', 'a/../../b.png', '/etc/passwd.png', 'C:/x.png']) {
+      expect(() => parseQuiz(quiz({ questions: [question({ image: bad })] }), 'x')).toThrow();
+    }
+  });
+
+  it('lehnt unzulässige Zeichen und Dateitypen ab', () => {
+    expect(() => parseQuiz(quiz({ questions: [question({ image: 'bild.exe' })] }), 'x')).toThrow(/enden/);
+    expect(() => parseQuiz(quiz({ questions: [question({ image: 'bild.png?x=1' })] }), 'x')).toThrow(/Zeichen/);
+    expect(() => parseQuiz(quiz({ questions: [question({ image: 'ohne-endung' })] }), 'x')).toThrow();
+  });
+
+  it('erlaubt die üblichen Bildformate', () => {
+    for (const good of ['a.png', 'a.jpg', 'a.jpeg', 'a.gif', 'a.webp', 'a.avif', 'a.svg']) {
+      expect(parseQuiz(quiz({ questions: [question({ image: good })] }), 'x').questions[0].image).toBe(good);
+    }
   });
 });
 
@@ -251,6 +301,24 @@ describe('Ausgelieferte Quiz-Dateien', () => {
     expect(result.quizzes.length).toBeGreaterThanOrEqual(2);
     expect(result.quizzes.map((q) => q.id)).toContain('uml-sequenzdiagramme');
     expect(result.quizzes.map((q) => q.id)).toContain('beispiel-quiz');
+  });
+
+  it('haben je Frage eine gültige Kategorie', () => {
+    for (const quizDefinition of loadQuizzes('quizzes').quizzes) {
+      for (const item of quizDefinition.questions) {
+        expect(item.category.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('verweisen nur auf vorhandene Bilddateien', () => {
+    for (const quizDefinition of loadQuizzes('quizzes').quizzes) {
+      for (const item of quizDefinition.questions) {
+        if (item.image) {
+          expect(existsSync(join('quizzes', 'media', item.image))).toBe(true);
+        }
+      }
+    }
   });
 
   it('haben je Frage genau eine Lösung und eine Erklärung', () => {

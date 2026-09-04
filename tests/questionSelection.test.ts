@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { selectQuestions, shuffle } from '../src/server/game/questionSelection.js';
-import { ANSWER_IDS } from '../src/shared/types.js';
+import { ANSWER_IDS, answerIdsFor } from '../src/shared/types.js';
 import { umlQuiz } from './helpers.js';
 
 const QUESTIONS = umlQuiz.questions;
@@ -16,7 +16,7 @@ describe('Fragenpool (quizzes/uml-sequenzdiagramme.json)', () => {
   it('hat pro Frage genau vier Antworten mit den IDs A-D', () => {
     for (const question of QUESTIONS) {
       expect(question.answers).toHaveLength(4);
-      expect(question.answers.map((a) => a.id)).toEqual([...ANSWER_IDS]);
+      expect(question.answers.map((a) => a.id)).toEqual(answerIdsFor(4));
       for (const answer of question.answers) {
         expect(answer.text.trim().length).toBeGreaterThan(0);
       }

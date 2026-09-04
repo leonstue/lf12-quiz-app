@@ -16,6 +16,7 @@
   import Backdrop from '../lib/components/Backdrop.svelte';
   import AnswerOption from '../lib/components/AnswerOption.svelte';
   import Brand from '../lib/components/Brand.svelte';
+  import CategoryStats from '../lib/components/CategoryStats.svelte';
   import Credit from '../lib/components/Credit.svelte';
   import DistributionChart from '../lib/components/DistributionChart.svelte';
   import Leaderboard from '../lib/components/Leaderboard.svelte';
@@ -23,6 +24,7 @@
   import RoundAnswers from '../lib/components/RoundAnswers.svelte';
   import NoticeBar from '../lib/components/NoticeBar.svelte';
   import QrCode from '../lib/components/QrCode.svelte';
+  import QuestionImage from '../lib/components/QuestionImage.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
@@ -276,13 +278,17 @@
 
         <h1 class="q-text">{question.question}</h1>
 
+        {#if question.imageUrl}
+          <QuestionImage src={question.imageUrl} alt={question.imageAlt} />
+        {/if}
+
         <TimerBar
           progress={hostGame.clock.progress}
           seconds={hostGame.clock.remainingSeconds}
           locked={phase === 'LOCKED'}
         />
 
-        <div class="q-options">
+        <div class="q-options" class:single-column={question.answers.length <= 2}>
           {#each question.answers as answer (answer.id)}
             <AnswerOption id={answer.id} text={answer.text} disabled />
           {/each}
@@ -299,6 +305,11 @@
         <div class="reveal-left">
           <span class="label-mono">Runde {question.index + 1} / {question.total} &middot; Auflösung</span>
           <h1 class="q-text small">{question.question}</h1>
+          {#if question.imageUrl}
+            <div class="reveal-image">
+              <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+            </div>
+          {/if}
           <DistributionChart
             distribution={reveal.distribution}
             highlight={hostGame.revealHighlight}
@@ -366,6 +377,11 @@
         <div class="end-grid">
           <div class="end-board">
             <Leaderboard entries={hostGame.leaderboard} />
+            {#if hostGame.review && hostGame.review.categories.length > 0}
+              <div class="end-categories panel">
+                <CategoryStats categories={hostGame.review.categories} />
+              </div>
+            {/if}
           </div>
 
           <div class="end-review panel">
@@ -892,6 +908,17 @@
   .end-board {
     overflow-y: auto;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .end-categories {
+    padding: 0.85rem 1rem;
+  }
+
+  .reveal-image {
+    margin-bottom: 0.85rem;
   }
 
   .end-review {
@@ -979,6 +1006,10 @@
 
     .q-options {
       grid-template-columns: 1fr 1fr;
+    }
+
+    .q-options.single-column {
+      grid-template-columns: 1fr;
     }
 
     .reveal {

@@ -113,6 +113,23 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
     },
   );
 
+  // Bilder der Quizze. Eigener Prefix, damit sie nicht mit dem Client-Build
+  // kollidieren; ausgeliefert wird ausschliesslich aus quizzes/media.
+  const mediaDir = join(config.quizzesDir, 'media');
+  if (existsSync(mediaDir)) {
+    await app.register(fastifyStatic, {
+      root: mediaDir,
+      prefix: '/quiz-media/',
+      decorateReply: false,
+      index: false,
+      cacheControl: true,
+      maxAge: '1h',
+    });
+    log.info('Quiz-Bilder werden ausgeliefert', { dir: mediaDir });
+  } else {
+    log.info('Kein Bildordner vorhanden -- Fragen ohne Bild funktionieren normal', { dir: mediaDir });
+  }
+
   const clientDir = resolveClientDir();
   if (clientDir) {
     // wildcard: true registriert GET /* -- notwendig, damit auch verschachtelte
@@ -130,7 +147,10 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
 
     // SPA-Fallback: alles, was keine API- und keine Asset-Route ist, liefert index.html.
     app.setNotFoundHandler((request, reply) => {
-      const isApi = request.url.startsWith('/api/') || request.url.startsWith('/socket.io');
+      const isApi =
+        request.url.startsWith('/api/') ||
+        request.url.startsWith('/socket.io') ||
+        request.url.startsWith('/quiz-media/');
       // Fehlende Assets bewusst als 404 melden statt HTML auszuliefern --
       // sonst scheitert der Modul-Import im Browser an der falschen MIME-Type.
       const isAsset = /\.[a-z0-9]{2,5}(\?|$)/i.test(request.url);

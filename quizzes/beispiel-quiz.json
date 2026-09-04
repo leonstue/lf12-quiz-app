@@ -1,9 +1,9 @@
 {
   "id": "beispiel-quiz",
   "name": "Beispiel-Quiz",
-  "description": "Vorlage zum Kopieren: zeigt alle Felder eines Quiz mit sechs kurzen Fragen.",
+  "description": "Vorlage zum Kopieren: zeigt alle Felder, eine Bildfrage sowie Fragen mit zwei und sechs Antworten.",
   "subject": "Vorlage",
-  "defaultQuestionIds": ["1", "2", "3", "4", "5"],
+  "defaultQuestionIds": ["1", "2", "7", "8", "3", "9"],
   "questions": [
     {
       "id": "1",
@@ -89,6 +89,53 @@
       ],
       "correctAnswer": "A",
       "explanation": "Ein zufälliger Salt pro Passwort sorgt dafür, dass identische Passwörter verschiedene Hashes ergeben. Damit werden vorberechnete Tabellen (Rainbow Tables) wertlos."
+    },
+    {
+      "id": "7",
+      "category": "UML",
+      "difficulty": 2,
+      "durationSeconds": 30,
+      "question": "Schau dir das Diagramm an: Was passiert, wenn die Zahlung fehlschlägt?",
+      "image": "ticketkauf-sequenzdiagramm.svg",
+      "imageAlt": "Sequenzdiagramm eines Ticketkaufs. Der Fahrgast wählt eine Strecke, die SmartCity-App löst die Zahlung bei PayPal aus. Ein alt-Fragment mit dem Guard 'Zahlung erfolgreich' trennt den Erfolgsfall vom Zweig 'sonst', in dem der Ticket-Service den Kauf abbricht.",
+      "answers": [
+        { "id": "A", "text": "Der sonst-Zweig läuft: kaufAbbrechen() geht an den Ticket-Service" },
+        { "id": "B", "text": "Beide Zweige des alt-Fragments werden nacheinander ausgeführt" },
+        { "id": "C", "text": "Die Lifeline des Fahrgasts wird zerstört" },
+        { "id": "D", "text": "Die Zahlung wird automatisch dreimal wiederholt" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Ein alt-Fragment führt genau einen Operanden aus. Trifft der Guard [Zahlung erfolgreich] nicht zu, gilt der sonst-Zweig — hier der asynchrone Aufruf kaufAbbrechen()."
+    },
+    {
+      "id": "8",
+      "category": "IT-Sicherheit",
+      "difficulty": 1,
+      "durationSeconds": 15,
+      "question": "Wahr oder falsch: Ein Zertifikat von Let's Encrypt ist weniger sicher als ein gekauftes.",
+      "answers": [
+        { "id": "A", "text": "Wahr" },
+        { "id": "B", "text": "Falsch" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Die Verschlüsselung ist identisch — es sind dieselben Algorithmen und Schlüssellängen. Kostenpflichtige Zertifikate unterscheiden sich durch Haftung, Support und erweiterte Prüfungen des Antragstellers, nicht durch Sicherheit."
+    },
+    {
+      "id": "9",
+      "category": "Programmierung",
+      "difficulty": 2,
+      "durationSeconds": 30,
+      "question": "Welcher HTTP-Statuscode signalisiert, dass eine Ressource nicht gefunden wurde?",
+      "answers": [
+        { "id": "A", "text": "200" },
+        { "id": "B", "text": "301" },
+        { "id": "C", "text": "401" },
+        { "id": "D", "text": "403" },
+        { "id": "E", "text": "404" },
+        { "id": "F", "text": "500" }
+      ],
+      "correctAnswer": "E",
+      "explanation": "404 heißt: Der Server hat die angeforderte Ressource nicht. 401 fehlt die Anmeldung, 403 ist der Zugriff trotz Anmeldung verboten, 500 ist ein Fehler auf dem Server."
     }
   ]
 }

@@ -6,6 +6,7 @@
   import AnswerOption from '../lib/components/AnswerOption.svelte';
   import Leaderboard from '../lib/components/Leaderboard.svelte';
   import NoticeBar from '../lib/components/NoticeBar.svelte';
+  import QuestionImage from '../lib/components/QuestionImage.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
@@ -100,6 +101,10 @@
 
         <h1 class="question-text">{question.question}</h1>
 
+        {#if question.imageUrl}
+          <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+        {/if}
+
         <TimerBar
           progress={playerGame.clock.progress}
           seconds={playerGame.clock.remainingSeconds}
@@ -146,6 +151,12 @@
         <p class="correct-line">
           Korrekte Antwort: <strong>{personal.correctAnswer}</strong>
         </p>
+
+        {#if question?.imageUrl}
+          <div class="reveal-image">
+            <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+          </div>
+        {/if}
 
         {#if question}
           <div class="reveal-options">
@@ -437,6 +448,10 @@
   .correct-line strong {
     font-family: var(--font-mono);
     color: var(--color-ink);
+  }
+
+  .reveal-image {
+    margin-bottom: 0.9rem;
   }
 
   .reveal-options {

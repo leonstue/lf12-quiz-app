@@ -78,10 +78,12 @@ Endung muss `.json` sein. Als Vorlage dient
   "questions": [
     {
       "id": "1",                        // optional, sonst die Position
-      "category": "Grundlagen",         // optional
+      "category": "Grundlagen",         // Thema -- Basis der Auswertung am Ende
       "difficulty": 1,                  // 1, 2 oder 3
       "durationSeconds": 20,            // optional: sonst 20 s, bei difficulty 3 25 s
       "question": "Die Frage?",
+      "image": "diagramm.svg",          // optional, relativ zu quizzes/media/
+      "imageAlt": "Was zu sehen ist.",  // optional, fuer Screenreader
       "answers": [
         { "id": "A", "text": "Antwort A" },
         { "id": "B", "text": "Antwort B" },
@@ -97,15 +99,37 @@ Endung muss `.json` sein. Als Vorlage dient
 
 ### Regeln
 
-- **Genau vier Antworten** je Frage, mit den ids `A`, `B`, `C`, `D` in dieser Reihenfolge.
-  Angezeigt wird pro Runde eine neu gemischte Reihenfolge.
+- **Zwei bis sechs Antworten** je Frage, mit den ids `A`, `B`, `C`, ... in dieser
+  Reihenfolge. Zwei Antworten ergeben eine Wahr/Falsch-Frage, sechs passen fuer
+  Aufzaehlungen. Angezeigt wird pro Runde eine neu gemischte Reihenfolge.
 - **Genau eine** `correctAnswer`, und die Antworttexte einer Frage müssen sich unterscheiden.
 - `question` und `explanation` sind Pflicht. Die Erklärung erscheint bei der Auflösung —
   auf dem Beamer und auf jedem Smartphone.
+- `category` ist die Grundlage der Themenauswertung auf der Endkarte. Fehlt sie, gilt
+  „Allgemein“ — dann ist die Auswertung entsprechend grob.
 - `defaultQuestionIds` bestimmt die Reihenfolge, wenn der Host *nicht* zufällig mischen
   lässt. Wählt der Host mehr Fragen, wird duplikatfrei aus dem Rest aufgefüllt.
 - Alle Frage-ids müssen innerhalb der Datei eindeutig sein; die Quiz-`id` muss über alle
   Dateien hinweg eindeutig sein.
+
+### Bilder zu Fragen
+
+Bilder liegen in `quizzes/media/` und werden über `"image"` relativ dazu referenziert —
+Unterordner sind erlaubt. Unterstützt werden `.png`, `.jpg`, `.gif`, `.webp`, `.avif` und
+`.svg`.
+
+```jsonc
+"image": "diagramme/ticketkauf.svg",
+"imageAlt": "Sequenzdiagramm eines Ticketkaufs mit alt-Fragment."
+```
+
+Das Bild erscheint auf dem Beamer groß über den Antworten, auf dem Smartphone kompakt und
+bei der Auflösung erneut. Bild und Fragetext ergänzen sich — die Frage steht immer darüber.
+
+Der Pfad wird streng geprüft: keine absoluten Pfade, kein `..`, nur harmlose Zeichen. Ein
+fehlendes Bild lässt die Frage normal laufen; angezeigt wird ein dezenter Hinweis statt
+eines kaputten Bildes. `quizzes/media/ticketkauf-sequenzdiagramm.svg` ist ein
+vollständiges Beispiel (Frage 7 im Beispiel-Quiz).
 
 ### Wirksam werden
 
@@ -303,6 +327,11 @@ Die Auswertung zeigt pro Teilnehmer und Runde die gewählte Antwort, ob sie rich
 Antwortzeit und die schnellste richtige Antwort. Über **CSV** landet alles als
 Semikolon-Datei (Excel-tauglich, mit BOM) auf der Platte.
 
+Unter der Rangliste steht die **Auswertung nach Themen**: je `category` ein Balken mit der
+Trefferquote, absteigend sortiert, dazu eine Zeile mit den drei schwächsten Themen. Rot
+unter 60 %, gelb bis 80 %, grün darüber. Bezugsgröße sind abgegebene Antworten — wer gar
+nicht antwortet, drückt die Quote also nicht künstlich.
+
 ### Tastenkürzel in der Beameransicht
 
 | Taste                | Wirkung     |
@@ -357,7 +386,9 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 ```
 .
 ├── quizzes/                        Ein Quiz je JSON-Datei
-│   ├── beispiel-quiz.json          Vorlage zum Kopieren (6 Fragen)
+│   ├── media/                      Bilder zu Fragen
+│   │   └── ticketkauf-sequenzdiagramm.svg
+│   ├── beispiel-quiz.json          Vorlage: Bildfrage, 2 und 6 Antworten (9 Fragen)
 │   └── uml-sequenzdiagramme.json   30 Fragen zu UML-Sequenzdiagrammen
 ├── src/
 │   ├── client/                     Frontend (Svelte 5)
@@ -377,12 +408,14 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   │   │       ├── AnswerOption.svelte      Antwortfläche
 │   │   │       ├── Backdrop.svelte          Hintergrund
 │   │   │       ├── Brand.svelte             Logo und Wortmarke
+│   │   │       ├── CategoryStats.svelte     Trefferquote je Thema
 │   │   │       ├── Credit.svelte            Herstellerhinweis
 │   │   │       ├── DistributionChart.svelte Antwortverteilung
 │   │   │       ├── Leaderboard.svelte       Rangliste
 │   │   │       ├── NoticeBar.svelte         Fehlermeldungen
 │   │   │       ├── OptionGlyph.svelte       Form je Antwortoption
 │   │   │       ├── QrCode.svelte            QR-Code (lokal erzeugt)
+│   │   │       ├── QuestionImage.svelte     Bild zur Frage
 │   │   │       ├── ReviewMatrix.svelte      Auswertung inkl. CSV-Export
 │   │   │       ├── RoundAnswers.svelte      Antwortdetails einer Runde
 │   │   │       ├── SoundToggle.svelte       Ton an/aus
@@ -408,7 +441,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   └── shared/                     Von Client und Server genutzt
 │       ├── types.ts                Domänentypen
 │       └── events.ts               Socket.IO-Eventtypen
-├── tests/                          Vitest (11 Dateien, 144 Tests)
+├── tests/                          Vitest (12 Dateien, 164 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -440,6 +473,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 | `GET /api/quizzes`     | Auswahlliste **ohne Fragen und ohne Lösungen**      |
 | `POST /api/host/login` | Host-Secret gegen Host-Token, 10 Versuche/Minute/IP |
 | `GET /api/rooms/:code` | Existiert der Raum? Kann man noch beitreten?        |
+| `GET /quiz-media/*`    | Bilder aus `quizzes/media/`                         |
 
 ### Socket.IO-Events
 
@@ -672,8 +706,13 @@ Zertifikat**. Die häufigsten Ursachen:
 npm test
 ```
 
-144 Tests in 11 Dateien decken ab:
+164 Tests in 12 Dateien decken ab:
 
+- **Bilder** — Pfadprüfung gegen Verzeichniswechsel und absolute Pfade, erlaubte Formate,
+  vorhandene Dateien in den ausgelieferten Quizzen
+- **Variable Antwortanzahl** — 2 bis 6 Optionen, Ablehnung von Buchstaben außerhalb der
+  Runde, Verteilung und Wertung bei zwei und sechs Antworten
+- **Themenauswertung** — Summen passen zu den Runden, Sortierung, keine Division durch null
 - **Quiz-Dateien** — Schema-Validierung, fehlende Pflichtfelder, falsche Antwort-ids,
   doppelte Texte, ungültige `correctAnswer`, defekte JSON-Dateien, doppelte Quiz-ids,
   Nachladen ohne Neustart; zusätzlich werden alle ausgelieferten Quizze geprüft
@@ -711,6 +750,9 @@ npm test
 - **Eingabevalidierung**: Nicknames werden getrimmt, auf 2–24 Zeichen begrenzt, von Steuer-,
   Zero-Width- und Bidi-Zeichen befreit; `<` und `>` werden entfernt. Quiz-Dateien werden
   streng validiert, Feldlängen begrenzt.
+- **Bildpfade**: nur relativ, kein `..`, keine Laufwerksbuchstaben, nur zugelassene
+  Endungen. Ausgeliefert wird ausschließlich aus `quizzes/media` — der Pfad ist die einzige
+  Stelle, an der eine Quiz-Datei auf das Dateisystem zeigt.
 - **Robuste Events**: Jeder Handler validiert seine Nutzlast und ist in `try/catch`
   gekapselt.
 - **Keine personenbezogenen Daten**: gespeichert werden nur der frei gewählte Nickname und
@@ -737,8 +779,8 @@ Bewusste Entscheidungen, keine offenen Baustellen:
 6. **Host-Tokens überleben keinen Neustart.** Danach muss sich der Host erneut anmelden.
 7. **Ergebnisse leben nur bis zum Neustart.** Die Endkarte zeigt die vollständige
    Auswertung und bietet einen CSV-Export; eine Historie gibt es nicht.
-8. **Genau vier Antworten je Frage.** Wahr/Falsch-Fragen oder Mehrfachauswahl unterstützt
-   das Schema nicht.
+8. **Zwei bis sechs Antworten je Frage, genau eine richtig.** Mehrfachauswahl, freie
+   Texteingabe oder Zahlenschätzungen unterstützt das Schema nicht.
 9. **Quizze werden nicht über die Oberfläche bearbeitet.** Neue Quizze entstehen als
    JSON-Datei im Ordner `quizzes/` — dafür ohne Rebuild und ohne Neustart.
 10. **Sounds sind synthetisch.** Kurze WebAudio-Töne statt lizenzierter Dateien. Browser

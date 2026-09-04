@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { Room, normalizeConfig } from '../src/server/game/Room.js';
-import { ANSWER_IDS, type AnswerId } from '../src/shared/types.js';
+import { answerIdsFor, type AnswerId } from '../src/shared/types.js';
 import {
   correctDisplayId,
   createEmitter,
@@ -288,7 +288,7 @@ describe('Antwortreihenfolge', () => {
 
       const payload = currentQuestionPayload(events);
       const ids = payload.question.answers.map((answer) => answer.id);
-      expect(ids).toEqual([...ANSWER_IDS]);
+      expect(ids).toEqual(answerIdsFor(4));
 
       const texts = payload.question.answers.map((answer) => answer.text);
       expect(new Set(texts).size).toBe(4);

@@ -4,9 +4,19 @@
  * `PublicQuestion` bewusst KEINE korrekte Antwort.
  */
 
-export type AnswerId = 'A' | 'B' | 'C' | 'D';
+export type AnswerId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F';
 
-export const ANSWER_IDS: readonly AnswerId[] = ['A', 'B', 'C', 'D'] as const;
+/** Alle moeglichen Antwort-Buchstaben in fester Reihenfolge. */
+export const ANSWER_IDS: readonly AnswerId[] = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
+
+/** Eine Frage braucht mindestens zwei und hoechstens sechs Antworten. */
+export const MIN_ANSWERS = 2;
+export const MAX_ANSWERS = ANSWER_IDS.length;
+
+/** Die Buchstaben fuer eine Frage mit `count` Antworten: A, B, C, ... */
+export function answerIdsFor(count: number): AnswerId[] {
+  return ANSWER_IDS.slice(0, Math.min(Math.max(count, MIN_ANSWERS), MAX_ANSWERS));
+}
 
 export type Difficulty = 1 | 2 | 3;
 
@@ -20,6 +30,10 @@ export interface QuizQuestion {
   category: string;
   difficulty: Difficulty;
   question: string;
+  /** Optionales Bild zur Frage, relativ zu `quizzes/media/`. */
+  image: string | null;
+  /** Bildbeschreibung fuer Screenreader. */
+  imageAlt: string | null;
   answers: QuizAnswer[];
   correctAnswer: AnswerId;
   explanation: string;
@@ -33,6 +47,9 @@ export interface PublicQuestion {
   category: string;
   difficulty: Difficulty;
   question: string;
+  /** Fertige URL zum Bild, sonst null. */
+  imageUrl: string | null;
+  imageAlt: string | null;
   answers: QuizAnswer[];
   durationSeconds: number;
 }
@@ -229,6 +246,16 @@ export interface ReviewAnswer {
   elapsedMs: number | null;
 }
 
+/** Trefferquote je Kategorie ueber alle gespielten Runden. */
+export interface CategoryStat {
+  category: string;
+  questionCount: number;
+  answered: number;
+  correct: number;
+  /** Anteil richtiger Antworten an allen abgegebenen Antworten, 0-100. */
+  percent: number;
+}
+
 export interface ReviewRound {
   index: number;
   questionId: string;
@@ -271,4 +298,6 @@ export interface GameReview {
   playedRounds: number;
   rounds: ReviewRound[];
   players: ReviewPlayer[];
+  /** Wo die Klasse steht -- absteigend nach Trefferquote sortiert. */
+  categories: CategoryStat[];
 }

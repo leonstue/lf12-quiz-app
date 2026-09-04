@@ -53,8 +53,8 @@ function resolveHostSecret(): string {
  */
 function resolveQuizzesDir(): string {
   const explicit = process.env.QUIZZES_DIR?.trim();
-  if (explicit) return explicit;
-  return resolve(process.cwd(), 'quizzes');
+  // Immer absolut aufloesen: @fastify/static akzeptiert keine relativen Wurzeln.
+  return resolve(explicit && explicit.length > 0 ? explicit : 'quizzes');
 }
 
 export const config = {

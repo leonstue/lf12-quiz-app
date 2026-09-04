@@ -53,7 +53,11 @@ export interface MakeRoomResult {
 export function createRoomFactory() {
   let rooms: Room[] = [];
 
-  function makeRoom(config: Partial<GameConfig> = {}, clock = new Clock(), quiz = umlQuiz): MakeRoomResult {
+  function makeRoom(
+    config: Partial<GameConfig> = {},
+    clock: Clock = new Clock(),
+    quiz: QuizDefinition = umlQuiz,
+  ): MakeRoomResult {
     const { emitter, events } = createEmitter();
     const room = new Room({
       code: 'TEST01',

@@ -4,6 +4,7 @@ import type {
   AnswerDistributionEntry,
   AnswerId,
   GameConfig,
+  CategoryStat,
   GamePhase,
   GameReview,
   QuizDefinition,
@@ -20,7 +21,7 @@ import type {
   RoomState,
   SocketError,
 } from '../../shared/types.js';
-import { ANSWER_IDS, TIMER_PRESET_SECONDS } from '../../shared/types.js';
+import { TIMER_PRESET_SECONDS, answerIdsFor } from '../../shared/types.js';
 import { createLogger } from '../logger.js';
 import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, nicknameKey, sanitizeNickname } from './nickname.js';
 import { selectQuestions, shuffle } from './questionSelection.js';
@@ -400,12 +401,13 @@ export class Room {
     const startedAtMs = this.now();
 
     const shuffledOriginals = shuffle(question.answers);
+    const letters = answerIdsFor(question.answers.length);
     const displayAnswers: QuizAnswer[] = [];
     const displayToOriginal = {} as Record<AnswerId, AnswerId>;
     let correctDisplayId: AnswerId = 'A';
 
     shuffledOriginals.forEach((answer, position) => {
-      const displayId = ANSWER_IDS[position];
+      const displayId = letters[position];
       displayAnswers.push({ id: displayId, text: answer.text });
       displayToOriginal[displayId] = answer.id;
       if (answer.id === question.correctAnswer) correctDisplayId = displayId;
@@ -477,7 +479,7 @@ export class Room {
     if (typeof roundIndex !== 'number' || !Number.isInteger(roundIndex) || roundIndex !== round.index) {
       return fail('INVALID_PAYLOAD', 'Die Antwort gehört nicht zur aktuellen Frage.');
     }
-    if (typeof answer !== 'string' || !ANSWER_IDS.includes(answer as AnswerId)) {
+    if (typeof answer !== 'string' || !round.displayAnswers.some((option) => option.id === answer)) {
       return fail('INVALID_PAYLOAD', 'Ungültige Antwortoption.');
     }
     if (nowMs > round.deadlineMs + this.answerGraceMs) {
@@ -614,7 +616,7 @@ export class Room {
   // -------------------------------------------------------------------- State
 
   private buildRevealPayload(round: Round) {
-    const counts = new Map<AnswerId, number>(ANSWER_IDS.map((id) => [id, 0]));
+    const counts = new Map<AnswerId, number>(round.displayAnswers.map((option) => [option.id, 0]));
     for (const submission of round.answers.values()) {
       counts.set(submission.answer, (counts.get(submission.answer) ?? 0) + 1);
     }
@@ -648,6 +650,8 @@ export class Room {
       category: round.question.category,
       difficulty: round.question.difficulty,
       question: round.question.question,
+      imageUrl: round.question.image ? `/quiz-media/${round.question.image}` : null,
+      imageAlt: round.question.imageAlt,
       answers: round.displayAnswers,
       durationSeconds: Math.round(round.durationMs / 1000),
     };
@@ -826,6 +830,7 @@ export class Room {
       playedRounds: playedRounds.length,
       rounds,
       players,
+      categories: buildCategoryStats(rounds),
     };
   }
 
@@ -878,6 +883,36 @@ export class Room {
     this.players.clear();
     this.tokenIndex.clear();
   }
+}
+
+/**
+ * Fasst die Runden zu Kategorien zusammen: Wo steht die Klasse?
+ * Bezugsgroesse sind abgegebene Antworten, nicht Teilnehmer -- wer nicht
+ * antwortet, verzerrt die Quote sonst nach unten.
+ */
+export function buildCategoryStats(rounds: ReviewRound[]): CategoryStat[] {
+  const byCategory = new Map<string, CategoryStat>();
+
+  for (const round of rounds) {
+    const entry = byCategory.get(round.category) ?? {
+      category: round.category,
+      questionCount: 0,
+      answered: 0,
+      correct: 0,
+      percent: 0,
+    };
+    entry.questionCount += 1;
+    entry.answered += round.answeredCount;
+    entry.correct += round.correctCount;
+    byCategory.set(round.category, entry);
+  }
+
+  return [...byCategory.values()]
+    .map((entry) => ({
+      ...entry,
+      percent: entry.answered === 0 ? 0 : Math.round((entry.correct / entry.answered) * 100),
+    }))
+    .sort((a, b) => b.percent - a.percent || a.category.localeCompare(b.category, 'de-DE'));
 }
 
 /** Begrenzt und normalisiert die vom Host geschickte Konfiguration. */
