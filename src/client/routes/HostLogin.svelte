@@ -1,5 +1,15 @@
 <script lang="ts">
-  import { ArrowLeft, ArrowRight, Eye, KeyRound, LogOut, Play, Shuffle, Timer as TimerIcon } from '@lucide/svelte';
+  import {
+    ArrowLeft,
+    ArrowRight,
+    Eye,
+    FileJson,
+    KeyRound,
+    LogOut,
+    Play,
+    Shuffle,
+    Timer as TimerIcon,
+  } from '@lucide/svelte';
 
   import type { GameConfig, QuizSummary, TimerPreset } from '../../shared/types.js';
   import Backdrop from '../lib/components/Backdrop.svelte';
@@ -197,6 +207,10 @@
           {#each quizErrors as error (error.file)}
             <p class="hint warn">{error.file}: {error.message}</p>
           {/each}
+          <button type="button" class="btn manage" onclick={() => navigate('/host/quizzes')}>
+            <FileJson size={16} strokeWidth={2.4} />
+            Quizze verwalten und erstellen
+          </button>
         </fieldset>
 
         <fieldset class="group">
@@ -460,6 +474,12 @@
     font-size: 0.72rem;
     font-weight: 500;
     opacity: 0.75;
+  }
+
+  .manage {
+    width: 100%;
+    margin-top: 0.6rem;
+    font-size: 0.88rem;
   }
 
   .quiz-list {

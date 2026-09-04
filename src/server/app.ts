@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance, type preHandlerHookHandler } from 'fastify';
 
 import { QUESTION_COUNT_OPTIONS } from '../shared/types.js';
 import { config } from './config.js';
@@ -12,7 +12,7 @@ import type { GameManager } from './game/GameManager.js';
 import { normalizeRoomCode } from './game/roomCode.js';
 import type { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
-import type { QuizRegistry } from './quiz/loader.js';
+import { UploadError, type QuizRegistry } from './quiz/loader.js';
 
 const log = createLogger('http');
 
@@ -53,6 +53,24 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
     timeWindow: '1 minute',
   });
 
+  // Viele HTTP-Clients setzen content-type auch ohne Rumpf (etwa bei DELETE).
+  // Fastify wuerde das sonst mit 400 ablehnen -- ein leerer Rumpf ist hier in Ordnung.
+  app.removeContentTypeParser('application/json');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
+    const text = typeof body === 'string' ? body.trim() : '';
+    if (text.length === 0) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(text));
+    } catch (error) {
+      const failure = error as Error & { statusCode?: number };
+      failure.statusCode = 400;
+      done(failure, undefined);
+    }
+  });
+
   app.get('/api/health', async () => ({ status: 'ok' }));
 
   app.get('/api/meta', async () => ({
@@ -69,6 +87,68 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
     quizzes: quizzes.summaries(),
     errors: quizzes.loadErrors.map((error) => ({ file: error.file, message: error.message })),
   }));
+
+  /** Host-Token aus dem Authorization-Header. Gibt bei Fehlen `null` zurueck. */
+  function hostTokenFrom(request: { headers: Record<string, unknown> }): string | null {
+    const header = request.headers.authorization;
+    if (typeof header !== 'string') return null;
+    const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+    return match ? match[1] : null;
+  }
+
+  const requireHost: preHandlerHookHandler = async (request, reply) => {
+    const token = hostTokenFrom(request as unknown as { headers: Record<string, unknown> });
+    if (!hostAuth.verifyToken(token)) {
+      log.warn('Host-API ohne gültiges Token', { url: request.url, ip: request.ip });
+      await reply.code(401).send({ error: 'Host-Sitzung abgelaufen. Bitte erneut anmelden.' });
+    }
+  };
+
+  // ------------------------------------------------ Eigene Quizze (Upload)
+
+  const uploadRoute = {
+    preHandler: requireHost,
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    // Ein Quiz mit 200 Fragen liegt deutlich unter 512 kB.
+    bodyLimit: 512 * 1024,
+  };
+
+  app.get('/api/host/quizzes', { preHandler: requireHost }, async () => ({
+    quizzes: quizzes.list().map((quiz) => ({ ...quiz, source: quizzes.sourceOf(quiz.id) })),
+    errors: quizzes.loadErrors,
+    media: quizzes.listMedia(),
+    uploads: { count: quizzes.uploadCount, ...quizzes.uploadLimits },
+  }));
+
+  app.post<{ Body: unknown }>('/api/host/quizzes', uploadRoute, async (request, reply) => {
+    try {
+      const quiz = quizzes.addUpload(request.body);
+      log.info('Quiz per Upload verfügbar', { id: quiz.id, ip: request.ip });
+      return reply.code(201).send({ ok: true, quiz });
+    } catch (error) {
+      if (error instanceof UploadError) {
+        const status = error.code === 'CONFLICT' ? 409 : error.code === 'LIMIT' ? 429 : 400;
+        return reply.code(status).send({ ok: false, error: error.message, code: error.code });
+      }
+      throw error;
+    }
+  });
+
+  app.delete<{ Params: { id: string } }>(
+    '/api/host/quizzes/:id',
+    { preHandler: requireHost, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      try {
+        quizzes.removeUpload(request.params.id);
+        return reply.send({ ok: true });
+      } catch (error) {
+        if (error instanceof UploadError) {
+          return reply.code(error.code === 'NOT_FOUND' ? 404 : 400).send({ ok: false, error: error.message });
+        }
+        throw error;
+      }
+    },
+  );
 
   app.post<{ Body: { secret?: unknown } }>(
     '/api/host/login',

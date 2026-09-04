@@ -6,6 +6,7 @@
   import Landing from './routes/Landing.svelte';
   import NotFound from './routes/NotFound.svelte';
   import Play from './routes/Play.svelte';
+  import QuizEditor from './routes/QuizEditor.svelte';
 
   const route = $derived(router.current);
 </script>
@@ -20,6 +21,8 @@
   <Play />
 {:else if route.name === 'host-login'}
   <HostLogin />
+{:else if route.name === 'host-quizzes'}
+  <QuizEditor />
 {:else if route.name === 'host-game'}
   {#key route.params.code}
     <HostGame code={route.params.code ?? ''} />

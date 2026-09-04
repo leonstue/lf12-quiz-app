@@ -1,10 +1,17 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { QuizRegistry, buildCountOptions, loadQuizzes, parseQuiz, toSummary } from '../src/server/quiz/loader.js';
+import {
+  QuizRegistry,
+  UploadError,
+  buildCountOptions,
+  loadQuizzes,
+  parseQuiz,
+  toSummary,
+} from '../src/server/quiz/loader.js';
 
 /** Minimal gültige Frage, die einzelne Felder gezielt überschreiben kann. */
 function question(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -328,5 +335,114 @@ describe('Ausgelieferte Quiz-Dateien', () => {
         expect(item.explanation.trim().length).toBeGreaterThan(10);
       }
     }
+  });
+});
+
+describe('Hochgeladene Quizze', () => {
+  function registry(): QuizRegistry {
+    const dir = tempDir();
+    writeFileSync(join(dir, 'datei.json'), JSON.stringify(quiz({ id: 'aus-datei', name: 'Aus Datei' })));
+    return new QuizRegistry(dir, 0, { maxUploads: 2, maxQuestions: 3 });
+  }
+
+  it('nimmt ein gültiges Quiz auf und macht es spielbar', () => {
+    const reg = registry();
+    const added = reg.addUpload(quiz({ id: 'hoch', name: 'Hochgeladen' }));
+
+    expect(added.id).toBe('hoch');
+    expect(reg.get('hoch')?.name).toBe('Hochgeladen');
+    expect(reg.sourceOf('hoch')).toBe('upload');
+    expect(reg.sourceOf('aus-datei')).toBe('file');
+    expect(reg.list().map((entry) => entry.id).sort()).toEqual(['aus-datei', 'hoch']);
+    expect(reg.uploadCount).toBe(1);
+  });
+
+  it('lehnt ungültige Inhalte mit verständlicher Meldung ab', () => {
+    const reg = registry();
+    expect(() => reg.addUpload({ name: 'Ohne Fragen', questions: [] })).toThrow(UploadError);
+    expect(() => reg.addUpload('kein objekt')).toThrow(/JSON-Objekt/);
+    expect(reg.uploadCount).toBe(0);
+  });
+
+  it('verhindert das Überschreiben eines Quiz aus dem Ordner', () => {
+    const reg = registry();
+    try {
+      reg.addUpload(quiz({ id: 'aus-datei', name: 'Kollision' }));
+      throw new Error('haette werfen muessen');
+    } catch (error) {
+      expect(error).toBeInstanceOf(UploadError);
+      expect((error as UploadError).code).toBe('CONFLICT');
+    }
+    expect(reg.get('aus-datei')?.name).toBe('Aus Datei');
+  });
+
+  it('ersetzt ein bereits hochgeladenes Quiz mit derselben id', () => {
+    const reg = registry();
+    reg.addUpload(quiz({ id: 'hoch', name: 'Erst' }));
+    reg.addUpload(quiz({ id: 'hoch', name: 'Dann' }));
+    expect(reg.uploadCount).toBe(1);
+    expect(reg.get('hoch')?.name).toBe('Dann');
+  });
+
+  it('begrenzt die Anzahl der Uploads', () => {
+    const reg = registry();
+    reg.addUpload(quiz({ id: 'a', name: 'A' }));
+    reg.addUpload(quiz({ id: 'b', name: 'B' }));
+    try {
+      reg.addUpload(quiz({ id: 'c', name: 'C' }));
+      throw new Error('haette werfen muessen');
+    } catch (error) {
+      expect((error as UploadError).code).toBe('LIMIT');
+    }
+  });
+
+  it('begrenzt die Anzahl der Fragen je Quiz', () => {
+    const reg = registry();
+    const many = Array.from({ length: 4 }, (_, index) => question({ id: String(index + 1) }));
+    try {
+      reg.addUpload(quiz({ id: 'gross', name: 'Gross', questions: many }));
+      throw new Error('haette werfen muessen');
+    } catch (error) {
+      expect((error as UploadError).code).toBe('LIMIT');
+    }
+  });
+
+  it('entfernt ein hochgeladenes Quiz wieder', () => {
+    const reg = registry();
+    reg.addUpload(quiz({ id: 'hoch', name: 'Hoch' }));
+    reg.removeUpload('hoch');
+    expect(reg.get('hoch')).toBeUndefined();
+    expect(reg.uploadCount).toBe(0);
+  });
+
+  it('kann Dateien nicht über removeUpload löschen', () => {
+    const reg = registry();
+    try {
+      reg.removeUpload('aus-datei');
+      throw new Error('haette werfen muessen');
+    } catch (error) {
+      expect((error as UploadError).code).toBe('NOT_FOUND');
+    }
+    expect(reg.get('aus-datei')).toBeDefined();
+  });
+
+  it('ist robust gegen unsinnige ids beim Entfernen', () => {
+    const reg = registry();
+    for (const bad of [undefined, null, 42, {}]) {
+      expect(() => reg.removeUpload(bad)).toThrow(UploadError);
+    }
+  });
+
+  it('listet Bilder aus dem media-Ordner', () => {
+    const dir = tempDir();
+    const media = join(dir, 'media');
+    mkdirSync(media, { recursive: true });
+    writeFileSync(join(media, 'bild.png'), 'x');
+    writeFileSync(join(media, 'notiz.txt'), 'x');
+    mkdirSync(join(media, 'unter'), { recursive: true });
+    writeFileSync(join(media, 'unter', 'zeichnung.svg'), 'x');
+
+    const reg = new QuizRegistry(dir, 0);
+    expect(reg.listMedia()).toEqual(['bild.png', 'unter/zeichnung.svg']);
   });
 });

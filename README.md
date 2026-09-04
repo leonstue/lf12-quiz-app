@@ -21,6 +21,7 @@ serverseitig. Der Client erfährt die Lösung erst beim Reveal.
 
 - [Schnellstart auf dem Server](#schnellstart-auf-dem-server)
 - [Quizze anlegen](#quizze-anlegen)
+- [Eigene Quizze im Browser](#eigene-quizze-im-browser)
 - [Server-Setup](#server-setup)
 - [Welche Domain muss ich eintragen?](#welche-domain-muss-ich-eintragen)
 - [HOST_SECRET](#host_secret)
@@ -148,6 +149,28 @@ Log **und** sichtbar in der Host-Auswahl.
 ```bash
 make logs | grep quiz
 ```
+
+### Eigene Quizze im Browser
+
+Unter **Host → Quizze verwalten und erstellen** (`/host/quizzes`) gibt es einen Editor:
+
+- **Erstellen und bearbeiten**: Fragen anlegen, sortieren, duplizieren, Antworten
+  hinzufügen oder entfernen (2 bis 6), die richtige markieren, Bild auswählen, Erklärung
+  schreiben. Fehler werden sofort angezeigt — solange etwas fehlt, bleiben die Buttons aus.
+- **Als JSON herunterladen**: erzeugt die fertige Datei. Wer sie dauerhaft behalten will,
+  legt sie in den Ordner `quizzes/` — dort überlebt sie jeden Neustart.
+- **Übernehmen / JSON hochladen**: Der Server prüft die Datei mit denselben Regeln wie eine
+  Datei aus dem Ordner. Ist sie in Ordnung, ist das Quiz sofort spielbar.
+- **Entfernen**: Hochgeladene Quizze lassen sich wieder löschen. Quizze aus dem Ordner
+  `quizzes/` können über die Oberfläche **nicht** gelöscht werden.
+
+> Hochgeladene Quizze liegen ausschließlich im **Arbeitsspeicher**. Der Server schreibt
+> nichts auf die Platte; nach einem Neustart sind sie weg. Deshalb: Datei herunterladen und
+> bei Bedarf in `quizzes/` ablegen. Grenzen: 20 Uploads gleichzeitig, 200 Fragen je Quiz,
+> 512 kB je Datei.
+
+Bilder lassen sich über die Oberfläche nicht hochladen — der Editor bietet nur an, was
+bereits in `quizzes/media/` liegt.
 
 ---
 
@@ -421,7 +444,8 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   │   │       ├── SoundToggle.svelte       Ton an/aus
 │   │   │       ├── StatTile.svelte          Kennzahl-Kachel
 │   │   │       └── TimerBar.svelte          Countdown-Balken
-│   │   └── routes/                 Landing, Join, Play, HostLogin, HostGame, NotFound
+│   │   └── routes/                 Landing, Join, Play, HostLogin, HostGame,
+│   │                               QuizEditor, NotFound
 │   ├── server/                     Backend (Node 22)
 │   │   ├── index.ts                Bootstrap, Shutdown
 │   │   ├── app.ts                  Fastify: API, statische Dateien, SPA-Fallback
@@ -441,7 +465,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   └── shared/                     Von Client und Server genutzt
 │       ├── types.ts                Domänentypen
 │       └── events.ts               Socket.IO-Eventtypen
-├── tests/                          Vitest (12 Dateien, 164 Tests)
+├── tests/                          Vitest (12 Dateien, 174 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -474,6 +498,14 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 | `POST /api/host/login` | Host-Secret gegen Host-Token, 10 Versuche/Minute/IP |
 | `GET /api/rooms/:code` | Existiert der Raum? Kann man noch beitreten?        |
 | `GET /quiz-media/*`    | Bilder aus `quizzes/media/`                         |
+
+Nur mit gültigem Host-Token (`Authorization: Bearer ...`):
+
+| Endpunkt                    | Beschreibung                                          |
+| --------------------------- | ----------------------------------------------------- |
+| `GET /api/host/quizzes`     | alle Quizze samt Herkunft, Bilderliste, Upload-Grenzen |
+| `POST /api/host/quizzes`    | Quiz prüfen und in den Arbeitsspeicher aufnehmen       |
+| `DELETE /api/host/quizzes/:id` | hochgeladenes Quiz entfernen                       |
 
 ### Socket.IO-Events
 
@@ -706,13 +738,16 @@ Zertifikat**. Die häufigsten Ursachen:
 npm test
 ```
 
-164 Tests in 12 Dateien decken ab:
+174 Tests in 12 Dateien decken ab:
 
 - **Bilder** — Pfadprüfung gegen Verzeichniswechsel und absolute Pfade, erlaubte Formate,
   vorhandene Dateien in den ausgelieferten Quizzen
 - **Variable Antwortanzahl** — 2 bis 6 Optionen, Ablehnung von Buchstaben außerhalb der
   Runde, Verteilung und Wertung bei zwei und sechs Antworten
 - **Themenauswertung** — Summen passen zu den Runden, Sortierung, keine Division durch null
+- **Upload und Entfernen** — gültige Uploads werden spielbar, ungültige abgelehnt,
+  Kollision mit einer Datei verhindert, Grenzen für Anzahl und Fragen, Dateien lassen sich
+  nicht über den Upload-Weg löschen
 - **Quiz-Dateien** — Schema-Validierung, fehlende Pflichtfelder, falsche Antwort-ids,
   doppelte Texte, ungültige `correctAnswer`, defekte JSON-Dateien, doppelte Quiz-ids,
   Nachladen ohne Neustart; zusätzlich werden alle ausgelieferten Quizze geprüft
@@ -781,11 +816,15 @@ Bewusste Entscheidungen, keine offenen Baustellen:
    Auswertung und bietet einen CSV-Export; eine Historie gibt es nicht.
 8. **Zwei bis sechs Antworten je Frage, genau eine richtig.** Mehrfachauswahl, freie
    Texteingabe oder Zahlenschätzungen unterstützt das Schema nicht.
-9. **Quizze werden nicht über die Oberfläche bearbeitet.** Neue Quizze entstehen als
-   JSON-Datei im Ordner `quizzes/` — dafür ohne Rebuild und ohne Neustart.
-10. **Sounds sind synthetisch.** Kurze WebAudio-Töne statt lizenzierter Dateien. Browser
+9. **Hochgeladene Quizze überleben keinen Neustart.** Der Editor erzeugt eine JSON-Datei
+   zum Herunterladen und kann sie in den Arbeitsspeicher übernehmen; dauerhaft wird ein
+   Quiz erst, wenn die Datei im Ordner `quizzes/` liegt. Der Server schreibt bewusst nie
+   selbst auf die Platte.
+10. **Bilder lassen sich nicht über die Oberfläche hochladen.** Sie müssen in
+    `quizzes/media/` liegen; der Editor bietet dann die vorhandenen Dateien an.
+11. **Sounds sind synthetisch.** Kurze WebAudio-Töne statt lizenzierter Dateien. Browser
     starten Audio erst nach der ersten Nutzerinteraktion. Abschaltbar.
-11. **Genau eine Domain.** Der Traefik-Router ist auf `Host(DOMAIN)` gebunden; `www.` wird
+12. **Genau eine Domain.** Der Traefik-Router ist auf `Host(DOMAIN)` gebunden; `www.` wird
     nicht mit ausgeliefert.
 
 ---

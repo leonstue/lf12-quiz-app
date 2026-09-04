@@ -221,19 +221,47 @@ export function loadQuizzes(dir: string): QuizLoadResult {
   return { quizzes, errors };
 }
 
+/** Woher ein Quiz stammt. */
+export type QuizSource = 'file' | 'upload';
+
+export interface UploadLimits {
+  /** Wie viele hochgeladene Quizze gleichzeitig vorgehalten werden. */
+  maxUploads: number;
+  /** Obergrenze fuer Fragen je Quiz. */
+  maxQuestions: number;
+}
+
+export const DEFAULT_UPLOAD_LIMITS: UploadLimits = { maxUploads: 20, maxQuestions: 200 };
+
+export class UploadError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'INVALID' | 'CONFLICT' | 'LIMIT' | 'NOT_FOUND',
+  ) {
+    super(message);
+  }
+}
+
 /**
- * Hält die geladenen Quizze. `refresh()` liest das Verzeichnis neu ein,
- * sodass neue Dateien ohne Neustart wirksam werden.
+ * Hält die verfügbaren Quizze.
+ *
+ * Zwei Quellen:
+ * - **Dateien** aus dem Quizordner. `refresh()` liest sie neu ein, sodass neue
+ *   Dateien ohne Neustart wirksam werden.
+ * - **Uploads** des Hosts. Die liegen ausschliesslich im Arbeitsspeicher und
+ *   sind nach einem Neustart wieder weg -- der Server schreibt nie auf die Platte.
  */
 export class QuizRegistry {
   private quizzes: QuizDefinition[] = [];
   private errors: QuizLoadError[] = [];
   private lastScan = 0;
+  private readonly uploads = new Map<string, QuizDefinition>();
 
   constructor(
     private readonly dir: string,
     /** Wie lange ein Scan als aktuell gilt. */
     private readonly cacheMs = 5_000,
+    private readonly limits: UploadLimits = DEFAULT_UPLOAD_LIMITS,
   ) {}
 
   refresh(force = false): void {
@@ -248,9 +276,81 @@ export class QuizRegistry {
     }
   }
 
+  /** Dateien und Uploads zusammen, nach Namen sortiert. */
   list(): QuizDefinition[] {
     this.refresh();
+    return [...this.quizzes, ...this.uploads.values()].sort((a, b) => a.name.localeCompare(b.name, 'de-DE'));
+  }
+
+  /** Nur die aus Dateien gelesenen Quizze. */
+  listFiles(): QuizDefinition[] {
+    this.refresh();
     return this.quizzes;
+  }
+
+  listUploads(): QuizDefinition[] {
+    return [...this.uploads.values()];
+  }
+
+  sourceOf(id: string): QuizSource | null {
+    if (this.uploads.has(id)) return 'upload';
+    this.refresh();
+    return this.quizzes.some((quiz) => quiz.id === id) ? 'file' : null;
+  }
+
+  /**
+   * Prüft ein hochgeladenes Quiz und legt es in den Arbeitsspeicher.
+   * Wirft {@link UploadError} mit einer für den Host verständlichen Meldung.
+   */
+  addUpload(raw: unknown, fallbackId = 'upload'): QuizDefinition {
+    let quiz: QuizDefinition;
+    try {
+      quiz = parseQuiz(raw, fallbackId);
+    } catch (error) {
+      throw new UploadError(error instanceof Error ? error.message : String(error), 'INVALID');
+    }
+
+    if (quiz.questions.length > this.limits.maxQuestions) {
+      throw new UploadError(
+        `Das Quiz hat ${quiz.questions.length} Fragen. Erlaubt sind höchstens ${this.limits.maxQuestions}.`,
+        'LIMIT',
+      );
+    }
+
+    this.refresh();
+    if (this.quizzes.some((existing) => existing.id === quiz.id)) {
+      throw new UploadError(
+        `Die id "${quiz.id}" gehört bereits zu einem Quiz im Ordner "quizzes". Bitte in der Datei eine andere "id" setzen.`,
+        'CONFLICT',
+      );
+    }
+    if (!this.uploads.has(quiz.id) && this.uploads.size >= this.limits.maxUploads) {
+      throw new UploadError(
+        `Es sind bereits ${this.limits.maxUploads} Quizze hochgeladen. Bitte zuerst eines entfernen.`,
+        'LIMIT',
+      );
+    }
+
+    this.uploads.set(quiz.id, quiz);
+    log.info('Quiz hochgeladen', { id: quiz.id, questions: quiz.questions.length, uploads: this.uploads.size });
+    return quiz;
+  }
+
+  /** Entfernt ein hochgeladenes Quiz. Dateien lassen sich so nicht löschen. */
+  removeUpload(id: unknown): void {
+    if (typeof id !== 'string' || !this.uploads.has(id)) {
+      throw new UploadError('Dieses Quiz wurde nicht hochgeladen und kann hier nicht entfernt werden.', 'NOT_FOUND');
+    }
+    this.uploads.delete(id);
+    log.info('Hochgeladenes Quiz entfernt', { id, uploads: this.uploads.size });
+  }
+
+  get uploadCount(): number {
+    return this.uploads.size;
+  }
+
+  get uploadLimits(): UploadLimits {
+    return this.limits;
   }
 
   summaries(): QuizSummary[] {
@@ -259,7 +359,7 @@ export class QuizRegistry {
 
   get(id: unknown): QuizDefinition | undefined {
     if (typeof id !== 'string') return undefined;
-    return this.list().find((quiz) => quiz.id === id);
+    return this.uploads.get(id) ?? this.listFiles().find((quiz) => quiz.id === id);
   }
 
   /** Erstes Quiz -- Rückfallebene, wenn der Host keine gültige Auswahl schickt. */
@@ -274,5 +374,32 @@ export class QuizRegistry {
 
   get size(): number {
     return this.list().length;
+  }
+
+  /** Bildnamen aus `media/`, relativ zu diesem Ordner -- für die Bildauswahl im Editor. */
+  listMedia(): string[] {
+    const mediaDir = join(this.dir, 'media');
+    const allowed = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.svg']);
+    const found: string[] = [];
+
+    const walk = (current: string, prefix: string, depth: number): void => {
+      if (depth > 3) return;
+      for (const entry of readdirSync(current)) {
+        const full = join(current, entry);
+        try {
+          if (statSync(full).isDirectory()) walk(full, `${prefix}${entry}/`, depth + 1);
+          else if (allowed.has(extname(entry).toLowerCase())) found.push(`${prefix}${entry}`);
+        } catch {
+          /* unlesbare Eintraege ueberspringen */
+        }
+      }
+    };
+
+    try {
+      walk(mediaDir, '', 0);
+    } catch {
+      return [];
+    }
+    return found.sort((a, b) => a.localeCompare(b, 'de-DE'));
   }
 }

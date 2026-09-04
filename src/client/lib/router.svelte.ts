@@ -1,4 +1,11 @@
-export type RouteName = 'landing' | 'join' | 'play' | 'host-login' | 'host-game' | 'not-found';
+export type RouteName =
+  | 'landing'
+  | 'join'
+  | 'play'
+  | 'host-login'
+  | 'host-quizzes'
+  | 'host-game'
+  | 'not-found';
 
 export interface RouteMatch {
   name: RouteName;
@@ -20,6 +27,7 @@ function matchPath(pathname: string): RouteMatch {
 
   if (segments[0] === 'host') {
     if (segments.length === 1) return { name: 'host-login', params: {} };
+    if (segments.length === 2 && segments[1] === 'quizzes') return { name: 'host-quizzes', params: {} };
     if (segments.length === 3 && segments[1] === 'game') {
       return { name: 'host-game', params: { code: segments[2].toUpperCase() } };
     }
