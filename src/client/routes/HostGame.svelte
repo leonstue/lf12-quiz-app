@@ -279,7 +279,7 @@
         <h1 class="q-text">{question.question}</h1>
 
         {#if question.imageUrl}
-          <QuestionImage src={question.imageUrl} alt={question.imageAlt} />
+          <QuestionImage src={question.imageUrl} alt={question.imageAlt} zoomable={false} />
         {/if}
 
         <TimerBar
@@ -307,7 +307,7 @@
           <h1 class="q-text small">{question.question}</h1>
           {#if question.imageUrl}
             <div class="reveal-image">
-              <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+              <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="inline" zoomable={false} />
             </div>
           {/if}
           <DistributionChart
@@ -489,7 +489,9 @@
     margin: 0 auto;
     padding: 0.9rem 1.1rem 1rem;
     gap: 0.75rem;
-    min-height: 100dvh;
+    /* Feste Hoehe statt Mindesthoehe: Die Beameransicht soll nie scrollen. */
+    height: 100dvh;
+    overflow: hidden;
   }
 
   .top {
@@ -566,6 +568,7 @@
     flex-direction: column;
     gap: 0.9rem;
     min-height: 0;
+    overflow: hidden;
   }
 
   .center {
@@ -704,10 +707,11 @@
 
   .question {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.85rem;
     animation: var(--animate-rise);
   }
 
@@ -719,10 +723,11 @@
 
   .q-text {
     margin: 0;
-    font-size: clamp(1.4rem, 3.6vw, 2.8rem);
+    font-size: clamp(1.3rem, min(3.4vw, 4.4vh), 2.8rem);
     font-weight: 800;
-    line-height: 1.2;
+    line-height: 1.18;
     letter-spacing: -0.02em;
+    flex: none;
   }
 
   .q-text.small {
@@ -734,6 +739,7 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 0.6rem;
+    flex: none;
   }
 
   .answer-count {
@@ -741,7 +747,8 @@
     align-items: baseline;
     justify-content: flex-end;
     gap: 0.4rem;
-    margin: 1.25rem 0 0;
+    margin: 0.75rem 0 0;
+    flex: none;
   }
 
   .answer-count strong {

@@ -7,6 +7,7 @@
     Download,
     FileJson,
     Plus,
+    Image as ImageIcon,
     Trash2,
     Upload,
     X,
@@ -20,7 +21,9 @@
   import { hostGame } from '../lib/hostGame.svelte.js';
   import {
     fetchHostQuizzes,
+    removeImage,
     removeUploadedQuiz,
+    uploadImage,
     uploadQuiz,
     type HostQuiz,
     type HostQuizzesResponse,
@@ -45,6 +48,9 @@
   let draft = $state<QuizDraft>(emptyDraft());
   let openIndex = $state(0);
   let fileInput = $state<HTMLInputElement | null>(null);
+  let imageInput = $state<HTMLInputElement | null>(null);
+  /** Fuer welche Frage der naechste Bild-Upload gilt. */
+  let imageTarget = $state(-1);
 
   const issues = $derived(validateDraft(draft));
   const blocking = $derived(issues.filter((issue) => issue.questionIndex === null));
@@ -185,6 +191,53 @@
     }
   }
 
+  // ------------------------------------------------------------- Bilder
+
+  function pickImage(index: number): void {
+    imageTarget = index;
+    imageInput?.click();
+  }
+
+  async function handleImage(event: Event): Promise<void> {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || !token || imageTarget < 0) return;
+
+    busy = true;
+    const result = await uploadImage(token, file);
+    busy = false;
+
+    if (result.ok) {
+      const question = draft.questions[imageTarget];
+      question.image = result.data.path;
+      if (question.imageAlt.trim().length === 0) question.imageAlt = file.name.replace(/[.][^.]*$/, '');
+      success = `Bild „${result.data.path}“ hochgeladen.`;
+      notice = null;
+      await load();
+    } else {
+      notice = result.error;
+      if (result.status === 401) hostGame.logout();
+    }
+    imageTarget = -1;
+  }
+
+  async function dropImage(path: string): Promise<void> {
+    if (!token) return;
+    busy = true;
+    const result = await removeImage(token, path);
+    busy = false;
+    if (result.ok) {
+      for (const question of draft.questions) {
+        if (question.image === path) question.image = '';
+      }
+      success = `Bild „${path}“ entfernt.`;
+      await load();
+    } else {
+      notice = result.error;
+    }
+  }
+
   async function remove(quiz: HostQuiz): Promise<void> {
     if (!token || quiz.source !== 'upload') return;
     busy = true;
@@ -229,6 +282,13 @@
         accept="application/json,.json"
         class="hidden-input"
         onchange={handleFile}
+      />
+      <input
+        bind:this={imageInput}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
+        class="hidden-input"
+        onchange={handleImage}
       />
       <button type="button" class="btn" onclick={() => fileInput?.click()} disabled={busy}>
         <Upload size={16} strokeWidth={2.4} />
@@ -443,7 +503,8 @@
                   </label>
                 </div>
 
-                <div class="row-2">
+                <div class="image-block">
+                  <div class="image-fields">
                   <label class="field-block">
                     <span class="field-label">Bild (optional)</span>
                     <select class="field" bind:value={question.image}>
@@ -460,6 +521,30 @@
                     <span class="field-label">Bildbeschreibung</span>
                     <input class="field" bind:value={question.imageAlt} maxlength="300" disabled={!question.image} />
                   </label>
+                  <div class="image-buttons">
+                    <button type="button" class="btn small" onclick={() => pickImage(index)} disabled={busy}>
+                      <ImageIcon size={15} strokeWidth={2.4} /> Bild hochladen
+                    </button>
+                    {#if question.image && (info?.uploadedMedia ?? []).includes(question.image)}
+                      <button
+                        type="button"
+                        class="btn small btn-danger"
+                        onclick={() => dropImage(question.image)}
+                        disabled={busy}
+                      >
+                        <Trash2 size={15} strokeWidth={2.4} /> Bild entfernen
+                      </button>
+                    {/if}
+                  </div>
+                  </div>
+
+                  <div class="image-preview">
+                    {#if question.image}
+                      <img src={`/quiz-media/${question.image}`} alt={question.imageAlt || 'Vorschau'} />
+                    {:else}
+                      <span class="label-mono">keine Vorschau</span>
+                    {/if}
+                  </div>
                 </div>
 
                 <div class="field-block">
@@ -796,11 +881,49 @@
     padding: 0.35rem 0.75rem 0.85rem;
   }
 
-  .row-2,
   .row-3 {
     display: grid;
     grid-template-columns: 1fr;
     gap: 0.6rem;
+  }
+
+  .image-block {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .image-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .image-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .image-preview {
+    display: grid;
+    place-items: center;
+    min-height: 7rem;
+    padding: 0.4rem;
+    border-radius: 0.8rem;
+    border: 1px dashed var(--color-line-strong);
+    background: rgb(255 255 255 / 4%);
+    overflow: hidden;
+  }
+
+  .image-preview img {
+    max-width: 100%;
+    max-height: 12rem;
+    object-fit: contain;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.3rem;
   }
 
   .chips {
@@ -893,12 +1016,13 @@
       grid-column: 1 / -1;
     }
 
-    .row-2 {
-      grid-template-columns: 1fr 1fr;
-    }
-
     .row-3 {
       grid-template-columns: 1.2fr 1.4fr 0.8fr;
+    }
+
+    .image-block {
+      grid-template-columns: 1.25fr 0.75fr;
+      align-items: start;
     }
   }
 

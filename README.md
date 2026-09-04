@@ -124,8 +124,15 @@ Unterordner sind erlaubt. Unterstützt werden `.png`, `.jpg`, `.gif`, `.webp`, `
 "imageAlt": "Sequenzdiagramm eines Ticketkaufs mit alt-Fragment."
 ```
 
-Das Bild erscheint auf dem Beamer groß über den Antworten, auf dem Smartphone kompakt und
-bei der Auflösung erneut. Bild und Fragetext ergänzen sich — die Frage steht immer darüber.
+Das Bild erscheint über den Antworten, bei der Auflösung erneut. Bild und Fragetext
+ergänzen sich — die Frage steht immer darüber.
+
+**Während einer laufenden Frage muss niemand scrollen.** Die Ansicht ist auf Bildschirmhöhe
+festgenagelt; das Bild nimmt genau den Platz, der nach Frage, Timer und Antwortflächen
+übrig bleibt, und gibt ihn auf kleinen Geräten wieder her. Antippen öffnet es
+formatfüllend (Schließen mit Tippen oder Escape) — auf einem 320 px breiten Gerät ist ein
+Diagramm sonst nicht lesbar. Geprüft auf 320×568, 390×844 und 412×915 mit 2, 4 und 6
+Antworten, mit und ohne Bild.
 
 Der Pfad wird streng geprüft: keine absoluten Pfade, kein `..`, nur harmlose Zeichen. Ein
 fehlendes Bild lässt die Frage normal laufen; angezeigt wird ein dezenter Hinweis statt
@@ -169,8 +176,19 @@ Unter **Host → Quizze verwalten und erstellen** (`/host/quizzes`) gibt es eine
 > bei Bedarf in `quizzes/` ablegen. Grenzen: 20 Uploads gleichzeitig, 200 Fragen je Quiz,
 > 512 kB je Datei.
 
-Bilder lassen sich über die Oberfläche nicht hochladen — der Editor bietet nur an, was
-bereits in `quizzes/media/` liegt.
+**Bilder hochladen**: Im Editor lädt der Button *Bild hochladen* eine Datei direkt zur
+Frage hoch; daneben steht sofort eine Vorschau. Hochgeladene Bilder landen unter
+`uploads/<name>` und liegen — wie hochgeladene Quizze — nur im Arbeitsspeicher. Grenzen:
+2 MB je Bild, 24 MB insgesamt, 40 Dateien.
+
+Erlaubt sind **PNG, JPG, GIF, WebP und AVIF**. Geprüft wird der Dateianfang, nicht die
+Endung — eine als `.png` benannte HTML-Datei wird abgelehnt. **SVG lässt sich nicht
+hochladen**: Eine SVG-Datei darf Skripte enthalten und würde vom selben Ursprung
+ausgeliefert. SVGs im Ordner `quizzes/media/` sind dagegen in Ordnung — die stammen aus dem
+Repository.
+
+Für dauerhafte Bilder die Datei in `quizzes/media/` legen; der Editor bietet sie dann
+neben den Uploads zur Auswahl an.
 
 ---
 
@@ -465,7 +483,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   └── shared/                     Von Client und Server genutzt
 │       ├── types.ts                Domänentypen
 │       └── events.ts               Socket.IO-Eventtypen
-├── tests/                          Vitest (12 Dateien, 174 Tests)
+├── tests/                          Vitest (13 Dateien, 192 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -506,6 +524,8 @@ Nur mit gültigem Host-Token (`Authorization: Bearer ...`):
 | `GET /api/host/quizzes`     | alle Quizze samt Herkunft, Bilderliste, Upload-Grenzen |
 | `POST /api/host/quizzes`    | Quiz prüfen und in den Arbeitsspeicher aufnehmen       |
 | `DELETE /api/host/quizzes/:id` | hochgeladenes Quiz entfernen                       |
+| `POST /api/host/media`      | Bild hochladen (roher Byte-Strom, Name in `x-filename`) |
+| `DELETE /api/host/media/*`  | hochgeladenes Bild entfernen                           |
 
 ### Socket.IO-Events
 
@@ -738,13 +758,15 @@ Zertifikat**. Die häufigsten Ursachen:
 npm test
 ```
 
-174 Tests in 12 Dateien decken ab:
+192 Tests in 13 Dateien decken ab:
 
 - **Bilder** — Pfadprüfung gegen Verzeichniswechsel und absolute Pfade, erlaubte Formate,
   vorhandene Dateien in den ausgelieferten Quizzen
 - **Variable Antwortanzahl** — 2 bis 6 Optionen, Ablehnung von Buchstaben außerhalb der
   Runde, Verteilung und Wertung bei zwei und sechs Antworten
 - **Themenauswertung** — Summen passen zu den Runden, Sortierung, keine Division durch null
+- **Bild-Uploads** — Formaterkennung am Dateianfang, getarnte Inhalte und SVG abgelehnt,
+  Namen entschärft, Grenzen für Größe, Gesamtvolumen und Anzahl, Pfadprüfung
 - **Upload und Entfernen** — gültige Uploads werden spielbar, ungültige abgelehnt,
   Kollision mit einer Datei verhindert, Grenzen für Anzahl und Fragen, Dateien lassen sich
   nicht über den Upload-Weg löschen
@@ -786,8 +808,10 @@ npm test
   Zero-Width- und Bidi-Zeichen befreit; `<` und `>` werden entfernt. Quiz-Dateien werden
   streng validiert, Feldlängen begrenzt.
 - **Bildpfade**: nur relativ, kein `..`, keine Laufwerksbuchstaben, nur zugelassene
-  Endungen. Ausgeliefert wird ausschließlich aus `quizzes/media` — der Pfad ist die einzige
-  Stelle, an der eine Quiz-Datei auf das Dateisystem zeigt.
+  Endungen. Ausgeliefert wird ausschließlich aus `quizzes/media` oder aus dem Upload-Speicher.
+- **Bild-Uploads**: Der Typ wird am Dateianfang erkannt, nicht am Namen; SVG ist als
+  Upload gesperrt. Bilder gehen mit `X-Content-Type-Options: nosniff` und einer
+  restriktiven `Content-Security-Policy` samt `sandbox` raus.
 - **Robuste Events**: Jeder Handler validiert seine Nutzlast und ist in `try/catch`
   gekapselt.
 - **Keine personenbezogenen Daten**: gespeichert werden nur der frei gewählte Nickname und
@@ -820,8 +844,8 @@ Bewusste Entscheidungen, keine offenen Baustellen:
    zum Herunterladen und kann sie in den Arbeitsspeicher übernehmen; dauerhaft wird ein
    Quiz erst, wenn die Datei im Ordner `quizzes/` liegt. Der Server schreibt bewusst nie
    selbst auf die Platte.
-10. **Bilder lassen sich nicht über die Oberfläche hochladen.** Sie müssen in
-    `quizzes/media/` liegen; der Editor bietet dann die vorhandenen Dateien an.
+10. **Hochgeladene Bilder überleben keinen Neustart** und können kein SVG sein. Dauerhafte
+    Bilder gehören nach `quizzes/media/`.
 11. **Sounds sind synthetisch.** Kurze WebAudio-Töne statt lizenzierter Dateien. Browser
     starten Audio erst nach der ersten Nutzerinteraktion. Abschaltbar.
 12. **Genau eine Domain.** Der Traefik-Router ist auf `Host(DOMAIN)` gebunden; `www.` wird

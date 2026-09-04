@@ -121,10 +121,17 @@ function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQ
   };
 }
 
-/** Sinnvolle Auswahlgrößen für "Anzahl Fragen" bei einem Quiz dieser Länge. */
-export function buildCountOptions(questionCount: number): number[] {
+/**
+ * Sinnvolle Auswahlgrößen für "Anzahl Fragen".
+ * Die Standardauswahl des Quiz gehört immer dazu -- sonst nennt die Oberfläche
+ * einen Standardwert, den man gar nicht auswählen kann.
+ */
+export function buildCountOptions(questionCount: number, defaultCount?: number): number[] {
   const options: number[] = QUESTION_COUNT_OPTIONS.filter((value) => value < questionCount);
   options.push(questionCount);
+  if (defaultCount !== undefined && defaultCount > 0 && defaultCount <= questionCount) {
+    options.push(defaultCount);
+  }
   return [...new Set(options)].sort((a, b) => a - b);
 }
 
@@ -181,7 +188,7 @@ export function toSummary(quiz: QuizDefinition): QuizSummary {
     subject: quiz.subject,
     questionCount: quiz.questions.length,
     categories,
-    countOptions: buildCountOptions(quiz.questions.length),
+    countOptions: buildCountOptions(quiz.questions.length, defaultCount),
     defaultCount: Math.min(defaultCount, quiz.questions.length),
   };
 }

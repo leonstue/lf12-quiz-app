@@ -200,6 +200,17 @@ describe('buildCountOptions', () => {
     expect(buildCountOptions(3)).toEqual([3]);
     expect(buildCountOptions(1)).toEqual([1]);
   });
+
+  it('nimmt die Standardauswahl mit auf', () => {
+    // 9 Fragen, davon 6 in der Standardauswahl -> 6 muss waehlbar sein.
+    expect(buildCountOptions(9, 6)).toEqual([5, 6, 9]);
+    expect(buildCountOptions(30, 12)).toEqual([5, 10, 12, 15, 20, 30]);
+  });
+
+  it('ignoriert unsinnige Standardwerte', () => {
+    expect(buildCountOptions(9, 0)).toEqual([5, 9]);
+    expect(buildCountOptions(9, 99)).toEqual([5, 9]);
+  });
 });
 
 describe('toSummary', () => {
@@ -225,6 +236,7 @@ describe('toSummary', () => {
       defaultCount: 1,
     });
     expect(summary.categories).toEqual(['Andere', 'Test']);
+    expect(summary.countOptions).toContain(summary.defaultCount);
     expect(JSON.stringify(summary)).not.toContain('correctAnswer');
     expect(JSON.stringify(summary)).not.toContain('explanation');
   });

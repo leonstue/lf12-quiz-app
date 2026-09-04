@@ -52,7 +52,7 @@
 
 <Backdrop calm />
 
-<div class="page">
+<div class="page" class:fixed-height={phase === 'QUESTION' || phase === 'LOCKED'}>
   <header class="head">
     <div class="identity">
       <span class="label-mono">Du spielst als</span>
@@ -102,7 +102,7 @@
         <h1 class="question-text">{question.question}</h1>
 
         {#if question.imageUrl}
-          <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+          <QuestionImage src={question.imageUrl} alt={question.imageAlt} />
         {/if}
 
         <TimerBar
@@ -112,13 +112,14 @@
           compact
         />
 
-        <div class="options">
+        <div class="options" class:many={question.answers.length > 4}>
           {#each question.answers as answer (answer.id)}
             <AnswerOption
               id={answer.id}
               text={answer.text}
               selected={selected === answer.id}
               disabled={selected !== null || phase !== 'QUESTION'}
+              compact={question.answers.length > 4}
               onselect={handleSelect}
             />
           {/each}
@@ -154,7 +155,7 @@
 
         {#if question?.imageUrl}
           <div class="reveal-image">
-            <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="mobile" />
+            <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="inline" />
           </div>
         {/if}
 
@@ -235,6 +236,16 @@
     margin: 0 auto;
     padding: 0.85rem 0.85rem 1.5rem;
     gap: 0.75rem;
+    min-height: 0;
+  }
+
+  /* Waehrend einer laufenden Frage darf nichts scrollen: Alles muss auf den
+     Schirm, das Bild gibt dafuer Hoehe ab. */
+  .page.fixed-height {
+    height: 100dvh;
+    padding-bottom: 0.85rem;
+    gap: 0.5rem;
+    overflow: hidden;
   }
 
   .head {
@@ -290,6 +301,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    min-height: 0;
   }
 
   .center-card {
@@ -348,9 +360,11 @@
   }
 
   .question-view {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.6rem;
     animation: var(--animate-rise);
   }
 
@@ -358,21 +372,48 @@
     display: flex;
     justify-content: space-between;
     gap: 1rem;
+    flex: none;
+  }
+
+  /* Sehr flache Geraete: der Hinweis ist verzichtbar, die Antwortflaechen nicht. */
+  @media (max-height: 620px) {
+    .saved.hint-only {
+      display: none;
+    }
+
+    .page.fixed-height {
+      padding: 0.5rem 0.6rem;
+      gap: 0.35rem;
+    }
+
+    .question-view {
+      gap: 0.4rem;
+    }
+
+    .round-line {
+      font-size: 0.66rem;
+    }
   }
 
   .question-text {
     margin: 0;
-    font-size: clamp(1.15rem, 5vw, 1.6rem);
+    /* Auch an der Bildschirmhoehe orientiert -- auf kleinen Geraeten kleiner. */
+    font-size: clamp(1rem, min(4.6vw, 2.4vh), 1.6rem);
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.25;
     letter-spacing: -0.01em;
+    flex: none;
   }
 
   .options {
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    margin-top: 0.35rem;
+    gap: 0.5rem;
+    flex: none;
+  }
+
+  .options.many {
+    gap: 0.35rem;
   }
 
   .saved {
@@ -380,8 +421,9 @@
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    margin: 0.4rem 0 0;
-    padding: 0.6rem;
+    margin: 0;
+    flex: none;
+    padding: 0.5rem;
     border-radius: 0.75rem;
     font-size: 0.9rem;
     font-weight: 600;

@@ -12,10 +12,12 @@
     disabled?: boolean;
     /** Nach dem Reveal: markiert die Lösung bzw. eine falsche Auswahl. */
     state?: 'none' | 'correct' | 'wrong' | 'dimmed';
+    /** Flacher, wenn viele Optionen auf einen kleinen Schirm müssen. */
+    compact?: boolean;
     onselect?: (id: AnswerId) => void;
   }
 
-  let { id, text, selected = false, disabled = false, state = 'none', onselect }: Props = $props();
+  let { id, text, selected = false, disabled = false, state = 'none', compact = false, onselect }: Props = $props();
 
   const meta = $derived(OPTION_META[id]);
 
@@ -28,6 +30,7 @@
 <button
   type="button"
   class="option"
+  class:compact
   class:selected
   class:correct={state === 'correct'}
   class:wrong={state === 'wrong'}
@@ -60,8 +63,9 @@
     align-items: center;
     gap: 0.85rem;
     width: 100%;
-    min-height: 4.25rem;
-    padding: 0.9rem 1rem;
+    /* Nie unter 44 px, sonst ist das Ziel zu klein zum Tippen. */
+    min-height: max(2.75rem, min(4.25rem, 8.5vh));
+    padding: 0.75rem 1rem;
     text-align: left;
     border-radius: 1rem;
     border: 1px solid var(--color-line-strong);
@@ -138,10 +142,20 @@
 
   .text {
     flex: 1;
-    font-size: 1.02rem;
-    line-height: 1.35;
+    font-size: clamp(0.9rem, min(3.8vw, 2vh), 1.05rem);
+    line-height: 1.3;
     font-weight: 500;
     overflow-wrap: anywhere;
+  }
+
+  .option.compact {
+    min-height: max(2.75rem, min(3.4rem, 6.4vh));
+    padding: 0.5rem 0.8rem;
+    gap: 0.6rem;
+  }
+
+  .option.compact .badge {
+    padding: 0.3rem 0.45rem;
   }
 
   .marker {
@@ -170,12 +184,12 @@
 
   @media (min-width: 768px) {
     .option {
-      min-height: 4.75rem;
+      min-height: min(4.75rem, 11vh);
       padding: 1rem 1.15rem;
     }
 
     .text {
-      font-size: 1.1rem;
+      font-size: clamp(1rem, 1.6vh, 1.15rem);
     }
   }
 </style>

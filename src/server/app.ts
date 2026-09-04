@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { createReadStream, existsSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,6 +13,7 @@ import { normalizeRoomCode } from './game/roomCode.js';
 import type { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
 import { UploadError, type QuizRegistry } from './quiz/loader.js';
+import { MediaError, contentTypeFor, resolveInside, type MediaStore } from './quiz/media.js';
 
 const log = createLogger('http');
 
@@ -35,11 +36,12 @@ function resolveClientDir(): string | null {
 export interface BuildAppOptions {
   hostAuth: HostAuth;
   quizzes: QuizRegistry;
+  media: MediaStore;
   /** Wird erst nach dem Aufbau des Socket-Layers gesetzt. */
   getGames: () => GameManager | null;
 }
 
-export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions): Promise<FastifyInstance> {
+export async function buildApp({ hostAuth, quizzes, media, getGames }: BuildAppOptions): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false,
     trustProxy: true,
@@ -70,6 +72,13 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
       done(failure, undefined);
     }
   });
+
+  // Bild-Uploads kommen als roher Byte-Strom -- ohne base64-Aufblaehung.
+  app.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer' },
+    (_request, body, done) => done(null, body),
+  );
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
@@ -116,9 +125,53 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
   app.get('/api/host/quizzes', { preHandler: requireHost }, async () => ({
     quizzes: quizzes.list().map((quiz) => ({ ...quiz, source: quizzes.sourceOf(quiz.id) })),
     errors: quizzes.loadErrors,
-    media: quizzes.listMedia(),
+    media: [...quizzes.listMedia(), ...media.list()],
+    uploadedMedia: media.list(),
     uploads: { count: quizzes.uploadCount, ...quizzes.uploadLimits },
+    mediaLimits: { count: media.count, bytes: media.totalBytes, ...media.limitsInfo },
   }));
+
+  /** Bild-Upload: roher Dateiinhalt, Name im Header. */
+  app.post<{ Body: Buffer }>(
+    '/api/host/media',
+    {
+      preHandler: requireHost,
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+      bodyLimit: 4 * 1024 * 1024,
+    },
+    async (request, reply) => {
+      try {
+        const name = request.headers['x-filename'];
+        const body = request.body;
+        if (!Buffer.isBuffer(body) || body.length === 0) {
+          return reply.code(400).send({ ok: false, error: 'Es wurde keine Datei übertragen.' });
+        }
+        const path = media.add(typeof name === 'string' ? decodeURIComponent(name) : undefined, body);
+        return reply.code(201).send({ ok: true, path, url: `/quiz-media/${path}` });
+      } catch (error) {
+        if (error instanceof MediaError) {
+          return reply.code(error.code === 'LIMIT' ? 429 : 400).send({ ok: false, error: error.message });
+        }
+        throw error;
+      }
+    },
+  );
+
+  app.delete<{ Params: { '*': string } }>(
+    '/api/host/media/*',
+    { preHandler: requireHost, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      try {
+        media.remove(decodeURIComponent(request.params['*'] ?? ''));
+        return reply.send({ ok: true });
+      } catch (error) {
+        if (error instanceof MediaError) {
+          return reply.code(error.code === 'NOT_FOUND' ? 404 : 400).send({ ok: false, error: error.message });
+        }
+        throw error;
+      }
+    },
+  );
 
   app.post<{ Body: unknown }>('/api/host/quizzes', uploadRoute, async (request, reply) => {
     try {
@@ -193,22 +246,34 @@ export async function buildApp({ hostAuth, quizzes, getGames }: BuildAppOptions)
     },
   );
 
-  // Bilder der Quizze. Eigener Prefix, damit sie nicht mit dem Client-Build
-  // kollidieren; ausgeliefert wird ausschliesslich aus quizzes/media.
+  // Bilder der Quizze: erst die hochgeladenen aus dem Arbeitsspeicher, sonst
+  // aus quizzes/media. Bewusst ein eigener Handler statt @fastify/static --
+  // so lassen sich beide Quellen unter einem Prefix bedienen.
   const mediaDir = join(config.quizzesDir, 'media');
-  if (existsSync(mediaDir)) {
-    await app.register(fastifyStatic, {
-      root: mediaDir,
-      prefix: '/quiz-media/',
-      decorateReply: false,
-      index: false,
-      cacheControl: true,
-      maxAge: '1h',
-    });
-    log.info('Quiz-Bilder werden ausgeliefert', { dir: mediaDir });
-  } else {
-    log.info('Kein Bildordner vorhanden -- Fragen ohne Bild funktionieren normal', { dir: mediaDir });
-  }
+  app.get<{ Params: { '*': string } }>(
+    '/quiz-media/*',
+    { config: { rateLimit: { max: 600, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const relative = decodeURIComponent(request.params['*'] ?? '');
+
+      // Weder Uploads noch Dateien duerfen als HTML interpretiert werden.
+      void reply.header('x-content-type-options', 'nosniff');
+      void reply.header('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+
+      const uploaded = media.get(relative);
+      if (uploaded) {
+        return reply.header('cache-control', 'no-cache').type(uploaded.contentType).send(uploaded.data);
+      }
+
+      const target = resolveInside(mediaDir, relative);
+      const type = contentTypeFor(relative);
+      if (!target || !type || !existsSync(target) || !statSync(target).isFile()) {
+        return reply.code(404).send({ error: 'Not Found' });
+      }
+      return reply.header('cache-control', 'public, max-age=3600').type(type).send(createReadStream(target));
+    },
+  );
+  log.info('Quiz-Bilder werden ausgeliefert', { dir: mediaDir, vorhanden: existsSync(mediaDir) });
 
   const clientDir = resolveClientDir();
   if (clientDir) {

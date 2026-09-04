@@ -4,6 +4,7 @@ import type { GameManager } from './game/GameManager.js';
 import { HostAuth } from './hostAuth.js';
 import { createLogger } from './logger.js';
 import { QuizRegistry } from './quiz/loader.js';
+import { MediaStore } from './quiz/media.js';
 import { createSocketLayer } from './socket.js';
 
 const log = createLogger('server');
@@ -23,8 +24,10 @@ async function main(): Promise<void> {
     });
   }
 
+  const media = new MediaStore();
+
   let games: GameManager | null = null;
-  const app = await buildApp({ hostAuth, quizzes, getGames: () => games });
+  const app = await buildApp({ hostAuth, quizzes, media, getGames: () => games });
 
   // Fastify muss bereit sein, bevor Socket.IO sich an den HTTP-Server hängt.
   await app.ready();
