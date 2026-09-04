@@ -428,9 +428,11 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 .
 ├── quizzes/                        Ein Quiz je JSON-Datei
 │   ├── media/                      Bilder zu Fragen
+│   │   ├── fehler-im-diagramm.svg
+│   │   ├── nachrichtenarten.svg
 │   │   └── ticketkauf-sequenzdiagramm.svg
 │   ├── beispiel-quiz.json          Vorlage: Bildfrage, 2 und 6 Antworten (9 Fragen)
-│   └── uml-sequenzdiagramme.json   30 Fragen zu UML-Sequenzdiagrammen
+│   └── uml-sequenzdiagramme.json   32 Fragen zu UML-Sequenzdiagrammen (2 mit Diagramm)
 ├── src/
 │   ├── client/                     Frontend (Svelte 5)
 │   │   ├── App.svelte              Router-Outlet
@@ -483,7 +485,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   └── shared/                     Von Client und Server genutzt
 │       ├── types.ts                Domänentypen
 │       └── events.ts               Socket.IO-Eventtypen
-├── tests/                          Vitest (13 Dateien, 192 Tests)
+├── tests/                          Vitest (13 Dateien, 197 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -758,10 +760,11 @@ Zertifikat**. Die häufigsten Ursachen:
 npm test
 ```
 
-192 Tests in 13 Dateien decken ab:
+197 Tests in 13 Dateien decken ab:
 
 - **Bilder** — Pfadprüfung gegen Verzeichniswechsel und absolute Pfade, erlaubte Formate,
-  vorhandene Dateien in den ausgelieferten Quizzen
+  vorhandene Dateien in den ausgelieferten Quizzen, XML-Wohlgeformtheit der mitgelieferten
+  SVGs (keine `--` in Kommentaren, nur XML-eigene Entities)
 - **Variable Antwortanzahl** — 2 bis 6 Optionen, Ablehnung von Buchstaben außerhalb der
   Runde, Verteilung und Wertung bei zwei und sechs Antworten
 - **Themenauswertung** — Summen passen zu den Runden, Sortierung, keine Division durch null

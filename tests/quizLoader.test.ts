@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -456,5 +456,35 @@ describe('Hochgeladene Quizze', () => {
 
     const reg = new QuizRegistry(dir, 0);
     expect(reg.listMedia()).toEqual(['bild.png', 'unter/zeichnung.svg']);
+  });
+});
+
+describe('Bilddateien im Ordner quizzes/media', () => {
+  const dir = join('quizzes', 'media');
+  const svgs = existsSync(dir) ? readdirSync(dir).filter((file) => file.toLowerCase().endsWith('.svg')) : [];
+
+  it('es gibt überhaupt welche', () => {
+    expect(svgs.length).toBeGreaterThan(0);
+  });
+
+  // Ein SVG wird als XML geparst. Zwei Fallen fallen dabei erst im Browser auf:
+  // "--" innerhalb eines Kommentars und HTML-Entities, die XML nicht kennt.
+  // Beides laesst das Bild kommentarlos verschwinden.
+  it.each(svgs)('%s ist wohlgeformtes XML', (file) => {
+    const content = readFileSync(join(dir, file), 'utf8');
+
+    for (const [, inner] of content.matchAll(/<!--([\s\S]*?)-->/g)) {
+      expect(inner, `Kommentar in ${file} enthält "--"`).not.toContain('--');
+    }
+
+    const allowed = new Set(['amp', 'lt', 'gt', 'quot', 'apos']);
+    for (const [full, name] of content.matchAll(/&([a-zA-Z][a-zA-Z0-9]*);/g)) {
+      expect(allowed.has(name), `${file} verwendet die in XML unbekannte Entity ${full}`).toBe(true);
+    }
+
+    // Grobe Struktur: genau ein Wurzelelement, sauber geschlossen.
+    expect(content.trimStart().startsWith('<svg') || content.includes('<svg')).toBe(true);
+    expect(content.trimEnd().endsWith('</svg>')).toBe(true);
+    expect((content.match(/<svg[\s>]/g) ?? []).length).toBe(1);
   });
 });

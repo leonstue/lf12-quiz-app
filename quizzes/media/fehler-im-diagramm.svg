@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 400" width="700" height="400" role="img"
+     aria-label="Sequenzdiagramm eines Ticketautomaten, in dem der Ticket-Instanz nach ihrer Zerstoerung noch eine Nachricht gesendet wird">
+  <style>
+    .bg { fill: #ffffff; }
+    .box { fill: #eef2ff; stroke: #4338ca; stroke-width: 1.5; }
+    .box-label { font: 600 13px system-ui, sans-serif; fill: #1e1b4b; text-anchor: middle; }
+    .lifeline { stroke: #6366f1; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .exec { fill: #c7d2fe; stroke: #4338ca; stroke-width: 1; }
+    .msg { stroke: #0f172a; stroke-width: 1.6; }
+    .reply { stroke: #0f172a; stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .create { stroke: #0f172a; stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .msg-label { font: 12px system-ui, sans-serif; fill: #0f172a; }
+    .cross { stroke: #0f172a; stroke-width: 2.6; }
+    .step { font: 600 11px system-ui, sans-serif; fill: #64748b; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="700" height="400" />
+
+  <defs>
+    <marker id="filled2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f172a" />
+    </marker>
+    <marker id="open2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10" fill="none" stroke="#0f172a" stroke-width="1.5" />
+    </marker>
+  </defs>
+
+  <!-- Teilnehmer -->
+  <rect class="box" x="50" y="24" width="140" height="34" rx="4" />
+  <text class="box-label" x="120" y="46">Ticketautomat</text>
+
+  <!-- Ticket entsteht erst spaeter -->
+  <rect class="box" x="410" y="96" width="150" height="34" rx="4" />
+  <text class="box-label" x="485" y="118">ticket : Ticket</text>
+
+  <!-- Lifelines -->
+  <line class="lifeline" x1="120" y1="58" x2="120" y2="372" />
+  <line class="lifeline" x1="485" y1="130" x2="485" y2="268" />
+
+  <!-- Aktivierungsbalken -->
+  <rect class="exec" x="114" y="86" width="12" height="250" />
+  <rect class="exec" x="479" y="160" width="12" height="46" />
+
+  <!-- 1: Create -->
+  <line class="create" x1="132" y1="113" x2="404" y2="113" marker-end="url(#open2)" />
+  <text class="msg-label" x="180" y="107">«create» neuesTicket()</text>
+  <text class="step" x="60" y="107">1</text>
+
+  <!-- 2: entwerten -->
+  <line class="msg" x1="132" y1="172" x2="473" y2="172" marker-end="url(#filled2)" />
+  <text class="msg-label" x="210" y="166">entwerten()</text>
+  <text class="step" x="60" y="166">2</text>
+
+  <!-- 3: Reply -->
+  <line class="reply" x1="473" y1="206" x2="132" y2="206" marker-end="url(#open2)" />
+  <text class="msg-label" x="250" y="200">ok</text>
+  <text class="step" x="60" y="200">3</text>
+
+  <!-- 4: Destroy -->
+  <line class="msg" x1="132" y1="256" x2="470" y2="256" marker-end="url(#filled2)" />
+  <text class="msg-label" x="200" y="250">«destroy»</text>
+  <text class="step" x="60" y="250">4</text>
+  <line class="cross" x1="473" y1="244" x2="497" y2="268" />
+  <line class="cross" x1="497" y1="244" x2="473" y2="268" />
+
+  <!-- 5: Nachricht NACH der Zerstoerung : das ist der Fehler -->
+  <line class="msg" x1="132" y1="316" x2="473" y2="316" marker-end="url(#filled2)" />
+  <text class="msg-label" x="215" y="310">istGueltig()</text>
+  <text class="step" x="60" y="310">5</text>
+</svg>

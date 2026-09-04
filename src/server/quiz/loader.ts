@@ -113,7 +113,9 @@ function parseQuestion(raw: unknown, index: number, seenIds: Set<string>): QuizQ
     difficulty,
     question: requireString(input.question, `${where}.question`, { max: 500 }),
     image: parseImagePath(input.image, `${where}.image`),
-    imageAlt: input.imageAlt === undefined ? null : requireString(input.imageAlt, `${where}.imageAlt`, { max: 300 }),
+    // Bildbeschreibungen duerfen laenger sein: Ein Diagramm braucht mehr Worte
+    // als eine Frage, damit Screenreader den Inhalt wirklich wiedergeben.
+    imageAlt: input.imageAlt === undefined ? null : requireString(input.imageAlt, `${where}.imageAlt`, { max: 700 }),
     answers,
     correctAnswer: correctAnswer as AnswerId,
     explanation: requireString(input.explanation, `${where}.explanation`, { max: 1000 }),

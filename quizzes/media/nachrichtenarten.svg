@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" width="720" height="360" role="img"
+     aria-label="Sequenzdiagramm mit drei Nachrichtenarten zwischen Kunde, Shop und Versand-Service">
+  <style>
+    .bg { fill: #ffffff; }
+    .box { fill: #eef2ff; stroke: #4338ca; stroke-width: 1.5; }
+    .box-label { font: 600 13px system-ui, sans-serif; fill: #1e1b4b; text-anchor: middle; }
+    .lifeline { stroke: #6366f1; stroke-width: 1.2; stroke-dasharray: 5 5; }
+    .exec { fill: #c7d2fe; stroke: #4338ca; stroke-width: 1; }
+    .msg { stroke: #0f172a; stroke-width: 1.6; }
+    .reply { stroke: #0f172a; stroke-width: 1.4; stroke-dasharray: 6 4; }
+    .msg-label { font: 12px system-ui, sans-serif; fill: #0f172a; }
+    .tag { font: 600 11px system-ui, sans-serif; fill: #7c3aed; }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="720" height="360" />
+
+  <defs>
+    <marker id="filled" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f172a" />
+    </marker>
+    <marker id="open" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10" fill="none" stroke="#0f172a" stroke-width="1.5" />
+    </marker>
+  </defs>
+
+  <!-- Teilnehmer -->
+  <rect class="box" x="40" y="22" width="120" height="34" rx="4" />
+  <text class="box-label" x="100" y="44">Kunde</text>
+  <rect class="box" x="300" y="22" width="120" height="34" rx="4" />
+  <text class="box-label" x="360" y="44">Shop</text>
+  <rect class="box" x="560" y="22" width="130" height="34" rx="4" />
+  <text class="box-label" x="625" y="44">Versand-Service</text>
+
+  <!-- Lifelines -->
+  <line class="lifeline" x1="100" y1="56" x2="100" y2="336" />
+  <line class="lifeline" x1="360" y1="56" x2="360" y2="336" />
+  <line class="lifeline" x1="625" y1="56" x2="625" y2="336" />
+
+  <!-- Aktivierungsbalken -->
+  <rect class="exec" x="94" y="88" width="12" height="186" />
+  <rect class="exec" x="354" y="100" width="12" height="160" />
+  <rect class="exec" x="619" y="196" width="12" height="52" />
+
+  <!-- 1: synchron : durchgezogen, gefuellte Spitze -->
+  <line class="msg" x1="106" y1="100" x2="348" y2="100" marker-end="url(#filled)" />
+  <text class="msg-label" x="150" y="94">bestellen()</text>
+  <text class="tag" x="270" y="94">1</text>
+
+  <!-- 2: Reply : gestrichelt, offene Spitze -->
+  <line class="reply" x1="348" y1="150" x2="106" y2="150" marker-end="url(#open)" />
+  <text class="msg-label" x="170" y="144">bestellnummer</text>
+  <text class="tag" x="130" y="144">2</text>
+
+  <!-- 3: asynchron : durchgezogen, offene Spitze -->
+  <line class="msg" x1="366" y1="196" x2="613" y2="196" marker-end="url(#open)" />
+  <text class="msg-label" x="410" y="190">benachrichtigen()</text>
+  <text class="tag" x="560" y="190">3</text>
+
+  <!-- 4: Reply vom Shop an den Kunden -->
+  <line class="reply" x1="348" y1="260" x2="106" y2="260" marker-end="url(#open)" />
+  <text class="msg-label" x="160" y="254">bestaetigung</text>
+  <text class="tag" x="130" y="254">4</text>
+</svg>

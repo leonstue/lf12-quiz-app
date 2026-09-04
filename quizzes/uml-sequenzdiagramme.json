@@ -1,7 +1,7 @@
 {
   "id": "uml-sequenzdiagramme",
   "name": "UML-Sequenzdiagramme",
-  "description": "Lifelines, synchrone und asynchrone Nachrichten, Lebenszyklus von Objekten und Combined Fragments.",
+  "description": "Lifelines, synchrone und asynchrone Nachrichten, Lebenszyklus von Objekten und Combined Fragments — mit zwei Fragen zum Lesen eines Diagramms.",
   "subject": "Software Engineering",
   "defaultQuestionIds": [
     "1",
@@ -10,12 +10,14 @@
     "6",
     "7",
     "8",
+    "31",
     "13",
     "14",
     "17",
     "19",
     "23",
-    "29"
+    "29",
+    "32"
   ],
   "questions": [
     {
@@ -827,6 +829,64 @@
       ],
       "correctAnswer": "A",
       "explanation": "Zuerst den Normalfall mit den Beteiligten und ihrer Kommunikation aufbauen, danach Varianten und Fehlerfälle mit alt, opt oder loop ergänzen."
+    },
+    {
+      "id": "31",
+      "category": "Notation",
+      "difficulty": 2,
+      "durationSeconds": 30,
+      "question": "Schau dir das Diagramm an: Woran erkennst du, dass Nachricht 3 asynchron ist?",
+      "image": "nachrichtenarten.svg",
+      "imageAlt": "Sequenzdiagramm mit Kunde, Shop und Versand-Service. Nachricht 1 bestellen() ist durchgezogen mit gefüllter Pfeilspitze, Nachricht 2 bestellnummer und Nachricht 4 bestaetigung sind gestrichelt mit offener Pfeilspitze, Nachricht 3 benachrichtigen() ist durchgezogen mit offener Pfeilspitze. Alle drei Teilnehmer haben Aktivierungsbalken.",
+      "answers": [
+        {
+          "id": "A",
+          "text": "An der offenen Pfeilspitze bei durchgezogener Linie"
+        },
+        {
+          "id": "B",
+          "text": "An der gestrichelten Linie"
+        },
+        {
+          "id": "C",
+          "text": "Daran, dass sie unterhalb einer Antwort steht"
+        },
+        {
+          "id": "D",
+          "text": "Am fehlenden Aktivierungsbalken beim Empfänger"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Asynchron heißt: durchgezogene Linie mit offener Pfeilspitze. Nachricht 1 ist dagegen synchron (gefüllte Spitze), die Nachrichten 2 und 4 sind Replies (gestrichelt). Der Versand-Service hat sehr wohl einen Aktivierungsbalken — daran lässt sich die Nachrichtenart nicht ablesen."
+    },
+    {
+      "id": "32",
+      "category": "Analyse",
+      "difficulty": 3,
+      "durationSeconds": 35,
+      "question": "Was ist an diesem Diagramm fachlich falsch?",
+      "image": "fehler-im-diagramm.svg",
+      "imageAlt": "Sequenzdiagramm eines Ticketautomaten. Schritt 1 erzeugt per create eine Ticket-Instanz, Schritt 2 ruft entwerten() auf, Schritt 3 ist die Antwort ok, Schritt 4 zerstört die Instanz — erkennbar am X am Ende der Lifeline. Schritt 5 sendet danach noch istGueltig() an dieselbe Instanz.",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Nach dem Zerstören der Instanz wird ihr noch eine Nachricht geschickt"
+        },
+        {
+          "id": "B",
+          "text": "Eine Create-Message darf nicht gestrichelt gezeichnet werden"
+        },
+        {
+          "id": "C",
+          "text": "Der Ticketautomat braucht selbst einen Aktivierungsbalken"
+        },
+        {
+          "id": "D",
+          "text": "Die Antwort ok hätte durchgezogen gezeichnet werden müssen"
+        }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Das X markiert das Lebensende der Instanz. Danach kann sie keine Nachricht mehr empfangen — Schritt 5 müsste vor der Zerstörung liegen. Create-Messages und Replies werden korrekt gestrichelt gezeichnet, und der Ticketautomat hat bereits einen Aktivierungsbalken."
     }
   ]
 }
