@@ -442,7 +442,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   │   │   ├── clock.svelte.ts     Countdown, folgt der Serverzeit
 │   │   │   ├── hostGame.svelte.ts  Host-Zustand und Kommandos
 │   │   │   ├── playerGame.svelte.ts Teilnehmer-Zustand, Reconnect
-│   │   │   ├── nicknameSuggestions.ts 30 Namen aus der Welt der Sequenzdiagramme
+│   │   │   ├── nicknameSuggestions.ts 50 Namen aus der Welt der Sequenzdiagramme
 │   │   │   ├── options.ts          Farb- und Formzuordnung A/B/C/D
 │   │   │   ├── router.svelte.ts    History-Router
 │   │   │   ├── socket.ts           Socket.IO-Client, Host-Login, Quizliste
@@ -785,7 +785,7 @@ npm test
 - **Nur eine Antwort pro Runde** — zweite Abgabe wird abgelehnt
 - **Deadline** — Antworten nach Ablauf plus Kulanz werden abgelehnt
 - **Nickname-Duplikate** — auch bei abweichender Schreibweise
-- **Nickname-Vorschläge** — 30 Namen, alle überstehen die Entschärfung unverändert, keiner
+- **Nickname-Vorschläge** — 50 Namen, alle überstehen die Entschärfung unverändert, keiner
   kollidiert mit einem anderen, der Würfel wiederholt sich nicht direkt
 - **Nickname-Entschärfung** — HTML-, Steuer- und Bidi-Zeichen werden entfernt
 - **Raumcode-Erzeugung** — Länge, lesbares Alphabet, Eindeutigkeit
