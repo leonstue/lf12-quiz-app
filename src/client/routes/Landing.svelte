@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, MonitorPlay, Smartphone, Timer, Users } from '@lucide/svelte';
+  import { ArrowRight, ChartColumn, KeyRound, MonitorPlay, Smartphone, Timer, Users } from '@lucide/svelte';
 
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
@@ -8,9 +8,10 @@
   import { navigate } from '../lib/router.svelte.js';
 
   const features = [
-    { icon: Smartphone, title: 'Nur ein Nickname', text: 'Kein Login, keine E-Mail, kein Passwort. Code eingeben und mitspielen.' },
-    { icon: Timer, title: 'Server-Timer', text: 'Punkte, Zeit und Lösung liegen ausschließlich beim Server.' },
-    { icon: Users, title: 'Ganze Klasse', text: 'Beamer-Ansicht für vorne, Smartphone-Ansicht für alle anderen.' },
+    { icon: KeyRound, title: 'Kein Login' },
+    { icon: Timer, title: 'Individueller Timer' },
+    { icon: Users, title: 'Beliebig viele Teilnehmer' },
+    { icon: ChartColumn, title: 'Auswertung je Teilnehmer', accent: true },
   ];
 </script>
 
@@ -23,15 +24,14 @@
   </header>
 
   <main class="hero">
-    <p class="label-mono kicker">Live-Quiz &middot; Beamer &middot; Smartphone</p>
+    <p class="label-mono kicker">Live-Quiz &middot; Echtzeit &middot; Jedes Gerät</p>
 
     <h1 class="headline title">
       <span class="gradient-text">Quiz</span><br />App
     </h1>
 
     <p class="lead">
-      Ein Live-Quiz für den Unterricht. Der Host wählt ein Quiz und steuert vorne am Beamer, alle anderen spielen
-      auf dem Smartphone mit — ohne Anmeldung, nur mit Raumcode und Nickname.
+      Quiz auswählen, Code teilen, loslegen. Punkte, Zeitbonus und Auswertung laufen automatisch mit.
     </p>
 
     <div class="actions">
@@ -49,12 +49,9 @@
     <ul class="features">
       {#each features as feature (feature.title)}
         {@const Icon = feature.icon}
-        <li class="panel feature">
-          <span class="feature-icon"><Icon size={20} strokeWidth={2.2} /></span>
-          <div>
-            <h2>{feature.title}</h2>
-            <p>{feature.text}</p>
-          </div>
+        <li class="panel feature" class:accent={feature.accent}>
+          <Icon size={17} strokeWidth={2.3} />
+          <h2>{feature.title}</h2>
         </li>
       {/each}
     </ul>
@@ -66,7 +63,7 @@
       <span class="dot">&bull;</span>
       <span>In-Memory Sessions</span>
       <span class="dot">&bull;</span>
-      <span>Keine Registrierung</span>
+      <span>Eigene Quizze</span>
     </div>
     <Credit />
   </footer>
@@ -133,40 +130,42 @@
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    gap: 0.85rem;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
+  /* Bewusst flach: nur Symbol und Begriff, damit die Zeile nicht zur Textwand wird. */
   .feature {
     display: flex;
-    gap: 0.9rem;
-    padding: 1.1rem;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.6rem 0.95rem;
+    border-radius: 999px;
+    color: var(--color-ink-muted);
   }
 
-  .feature-icon {
-    display: grid;
-    place-items: center;
+  .feature :global(svg) {
     flex: none;
-    width: 2.6rem;
-    height: 2.6rem;
-    border-radius: 0.8rem;
-    background: rgb(56 189 248 / 12%);
-    border: 1px solid rgb(56 189 248 / 25%);
     color: var(--color-brand);
   }
 
   .feature h2 {
-    margin: 0 0 0.25rem;
-    font-size: 0.98rem;
-    font-weight: 700;
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .feature p {
-    margin: 0;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    color: var(--color-ink-muted);
+  /* Die Auswertung ist das Verkaufsargument -- die darf leuchten. */
+  .feature.accent {
+    color: var(--color-ink);
+    background: rgb(56 189 248 / 10%);
+    border-color: rgb(56 189 248 / 35%);
+  }
+
+  .feature.accent h2 {
+    font-weight: 700;
   }
 
   .foot {
@@ -193,9 +192,47 @@
     .page {
       padding: 2rem;
     }
+  }
 
-    .features {
-      grid-template-columns: repeat(3, 1fr);
+  /* Flache Fenster: die Seite soll auch hier ohne Scrollen auskommen. */
+  @media (max-height: 780px) {
+    .hero {
+      padding: 1.5rem 0 1rem;
+    }
+
+    .title {
+      margin-bottom: 0.9rem;
+    }
+
+    .lead {
+      margin-bottom: 1.4rem;
+    }
+
+    .actions {
+      margin-bottom: 1.6rem;
+    }
+  }
+
+  /* Sehr flache Fenster: die Kopfzeile schrumpft, das Kleingedruckte tritt ab. */
+  @media (max-height: 680px) {
+    .title {
+      font-size: clamp(2.2rem, 9vw, 3.4rem);
+    }
+
+    .hero {
+      padding: 1rem 0 0.5rem;
+    }
+
+    .foot-meta {
+      display: none;
+    }
+
+    .page {
+      padding: 0.85rem 1.25rem;
+    }
+
+    .foot {
+      padding-top: 0.6rem;
     }
   }
 </style>

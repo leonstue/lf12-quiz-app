@@ -16,26 +16,42 @@ ENV_EXAMPLE := .env.example
 PW_FILE := .pw
 LE_VOLUME := quiz-app-letsencrypt
 
-.PHONY: help up down restart logs ps build update clean reset env status secret url check-tools doctor legacy-cleanup
+# Hervorhebung nur, wenn das Terminal sie beherrscht.
+BOLD := $(shell tput bold 2>/dev/null)
+DIM  := $(shell tput dim 2>/dev/null)
+OFF  := $(shell tput sgr0 2>/dev/null)
 
-## help: Verfuegbare Befehle anzeigen
-help:
-	@echo ""
-	@echo "  Quiz App -- Live-Quiz zu UML-Sequenzdiagrammen"
-	@echo ""
-	@echo "  make up        .env vorbereiten, Images bauen, Stack starten"
-	@echo "  make down      Container stoppen und entfernen (Zertifikate bleiben)"
-	@echo "  make restart   Container neu starten"
-	@echo "  make reset     App neu starten -> alle laufenden Quiz-Sessions verwerfen"
-	@echo "  make logs      Logs folgen (letzte 200 Zeilen)"
-	@echo "  make ps        Container-Status"
-	@echo "  make build     Images neu bauen"
-	@echo "  make update    git pull + Build + Neustart"
-	@echo "  make clean     Container und Build-Reste entfernen (Zertifikate bleiben)"
-	@echo "  make status    URLs und HOST_SECRET anzeigen"
-	@echo "  make secret    Nur das HOST_SECRET ausgeben"
-	@echo "  make doctor    Deployment pruefen (DNS, Ports, Router, Zertifikat)"
-	@echo ""
+.PHONY: help h up down restart logs ps build update clean reset env status secret url check-tools doctor legacy-cleanup
+
+## help: Alle Befehle mit Erklärung anzeigen
+## h: Kurzform von help
+help h:
+	@printf '\n  $(BOLD)Quiz App$(OFF) -- Live-Quiz, betrieben mit Docker Compose und Traefik\n'
+	@printf '  $(DIM)Aufruf: make <Befehl>. Ohne Befehl oder mit "make h" erscheint diese Übersicht.$(OFF)\n'
+	@printf '\n  $(BOLD)Starten und stoppen$(OFF)\n'
+	@printf '    %-9s %s\n' \
+	  up       'Alles startklar machen: .env prüfen, Images bauen, Stack starten.' \
+	  ''       'Der Befehl für den ersten Start und nach jeder Änderung.' \
+	  down     'Container stoppen und entfernen. Die Zertifikate bleiben liegen.' \
+	  restart  'App und Traefik neu starten, ohne neu zu bauen.' \
+	  reset    'Nur die App neu starten -- beendet alle laufenden Quiz-Runden.'
+	@printf '\n  $(BOLD)Nachsehen$(OFF)\n'
+	@printf '    %-9s %s\n' \
+	  status   'Container-Status, die drei URLs und das Host-Passwort.' \
+	  ps       'Nur der Container-Status.' \
+	  logs     'Den Logs folgen, ab den letzten 200 Zeilen. Beenden mit Strg+C.' \
+	  url      'Nur die öffentliche Adresse ausgeben.' \
+	  secret   'Nur das Host-Passwort ausgeben.' \
+	  doctor   'Deployment durchleuchten: DNS, Ports, Traefik-Router, Zertifikat.' \
+	  ''       'Der erste Griff, wenn die Seite nicht erreichbar ist.'
+	@printf '\n  $(BOLD)Pflegen$(OFF)\n'
+	@printf '    %-9s %s\n' \
+	  update   'Neue Version holen (git pull), bauen und ausrollen.' \
+	  build    'Images neu bauen, ohne den Stack anzufassen.' \
+	  env      '.env anlegen bzw. prüfen und $(PW_FILE) schreiben. Läuft bei "up" mit.' \
+	  clean    'Container, Image und dist/ entfernen. Die Zertifikate bleiben liegen.'
+	@printf '\n  $(DIM)Die Zertifikate liegen im Volume "$(LE_VOLUME)". Kein Befehl aus dieser$(OFF)\n'
+	@printf '  $(DIM)Liste löscht sie -- auch "clean" nicht. Das Host-Passwort steht in $(PW_FILE).$(OFF)\n\n'
 
 check-tools:
 	@for tool in docker openssl; do \
@@ -43,7 +59,7 @@ check-tools:
 	done
 	@docker compose version >/dev/null 2>&1 || { echo "FEHLER: 'docker compose' (Compose-Plugin) fehlt."; exit 1; }
 
-## env: .env anlegen und HOST_SECRET erzeugen, Domain pruefen
+## env: .env anlegen und HOST_SECRET erzeugen, Domain prüfen
 env: check-tools
 	@set -e
 	ENV_CREATED=0
@@ -75,11 +91,11 @@ env: check-tools
 	        echo ""; \
 	        if [ "$$ENV_CREATED" = "1" ]; then \
 	                echo " Die Datei $(ENV_FILE) wurde soeben aus $(ENV_EXAMPLE) erstellt und"; \
-	                echo " enthaelt noch die Platzhalter-Domain."; \
+	                echo " enthält noch die Platzhalter-Domain."; \
 	        else \
 	                echo " Die Datei $(ENV_FILE) existierte bereits und wurde deshalb NICHT"; \
-	                echo " ueberschrieben -- sie enthaelt dein HOST_SECRET. Stammt sie noch"; \
-	                echo " von einem frueheren Start, traegst du die Domain einmalig nach."; \
+	                echo " überschrieben -- sie enthält dein HOST_SECRET. Stammt sie noch"; \
+	                echo " von einem früheren Start, trägst du die Domain einmalig nach."; \
 	        fi; \
 	        echo ""; \
 	        if [ -n "$$EXAMPLE_DOMAIN" ] && [ "$$EXAMPLE_DOMAIN" != "quiz.example.de" ]; then \
@@ -93,19 +109,19 @@ env: check-tools
 	                echo " danach erneut:  make up"; \
 	        fi; \
 	        echo ""; \
-	        echo " Ausserdem noetig:"; \
+	        echo " Außerdem nötig:"; \
 	        echo "   - A/AAAA-Record der Domain zeigt auf diesen Server"; \
-	        echo "   - TCP 80 und 443 sind von aussen erreichbar"; \
+	        echo "   - TCP 80 und 443 sind von außen erreichbar"; \
 	        echo ""; \
 	        exit 1; \
 	fi
 	DOMAIN_NOW=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
 	SECRET_NOW=$$(grep -E '^HOST_SECRET=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-	printf '%s\n' "Quiz App -- Host-Zugang" "" "Host-Ansicht : https://$$DOMAIN_NOW/host" "Passwort     : $$SECRET_NOW" "" "Diese Datei erzeugt 'make up'. Sie liegt NICHT im Git." "Passwort aendern: HOST_SECRET in .env setzen, dann 'make up'." > "$(PW_FILE)"
+	printf '%s\n' "Quiz App -- Host-Zugang" "" "Host-Ansicht : https://$$DOMAIN_NOW/host" "Passwort     : $$SECRET_NOW" "" "Diese Datei erzeugt 'make up'. Sie liegt NICHT im Git." "Passwort ändern: HOST_SECRET in .env setzen, dann 'make up'." > "$(PW_FILE)"
 	chmod 600 "$(PW_FILE)" 2>/dev/null || true
 	@echo ">> Konfiguration ok. Host-Passwort steht in $(PW_FILE) (und in $(ENV_FILE))."
 
-## legacy-cleanup: Container des frueheren Projektnamens entfernen
+## legacy-cleanup: Container des früheren Projektnamens entfernen
 legacy-cleanup:
 	@if [ -n "$$(docker ps -aq --filter 'name=sequence-challenge-' 2>/dev/null)" ]; then \
 	  echo ">> Alte Container aus dem Projekt 'sequence-challenge' werden entfernt,"; \
@@ -129,7 +145,7 @@ status:
 	$(COMPOSE) ps; \
 	echo ""; \
 	echo "=============================================================="; \
-	echo " Quiz App laeuft"; \
+	echo " Quiz App läuft"; \
 	echo "=============================================================="; \
 	echo " Teilnehmer : https://$$DOMAIN"; \
 	echo " Beitreten  : https://$$DOMAIN/join"; \
@@ -143,10 +159,10 @@ status:
 ## doctor: Deployment diagnostizieren -- DNS, Ports, Traefik-Router, Zertifikat
 doctor:
 	@DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" 2>/dev/null | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs)
-	if [ -z "$$DOMAIN" ]; then echo "FEHLER: Keine DOMAIN in $(ENV_FILE). Zuerst 'make up' ausfuehren."; exit 1; fi
+	if [ -z "$$DOMAIN" ]; then echo "FEHLER: Keine DOMAIN in $(ENV_FILE). Zuerst 'make up' ausführen."; exit 1; fi
 	echo ""
 	echo "=============================================================="
-	echo " Diagnose fuer $$DOMAIN"
+	echo " Diagnose für $$DOMAIN"
 	echo "=============================================================="
 	echo ""
 	echo "--- 1. Container ---"
@@ -154,36 +170,36 @@ doctor:
 	RUNNING=$$($(COMPOSE) ps -q 2>/dev/null | wc -l | tr -d ' ')
 	EXISTING=$$($(COMPOSE) ps -aq 2>/dev/null | wc -l | tr -d ' ')
 	echo ""
-	if [ "$$RUNNING" = "0" ]; then 	  echo "  =========================================================="; 	  if [ "$$EXISTING" = "0" ]; then 	    echo "   Es laeuft KEIN Container -- der Stack wurde nie gestartet"; 	    echo "   oder mit 'make down' beendet."; 	  else 	    echo "   Alle Container sind BEENDET. Letzte Logzeilen:"; 	  fi; 	  echo ""; 	  echo "   Naechster Schritt:   make up"; 	  echo "  =========================================================="; 	  echo ""; 	  if [ "$$EXISTING" != "0" ]; then 	    $(COMPOSE) logs --tail=25 2>/dev/null | sed 's/^/  /'; 	    echo ""; 	  fi; 	fi
-	echo "--- 2. Docker-API und Traefik-Version (haeufigste Fehlerquelle) ---"
+	if [ "$$RUNNING" = "0" ]; then 	  echo "  =========================================================="; 	  if [ "$$EXISTING" = "0" ]; then 	    echo "   Es läuft KEIN Container -- der Stack wurde nie gestartet"; 	    echo "   oder mit 'make down' beendet."; 	  else 	    echo "   Alle Container sind BEENDET. Letzte Logzeilen:"; 	  fi; 	  echo ""; 	  echo "   Nächster Schritt:   make up"; 	  echo "  =========================================================="; 	  echo ""; 	  if [ "$$EXISTING" != "0" ]; then 	    $(COMPOSE) logs --tail=25 2>/dev/null | sed 's/^/  /'; 	    echo ""; 	  fi; 	fi
+	echo "--- 2. Docker-API und Traefik-Version (häufigste Fehlerquelle) ---"
 	SRV=$$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo '?')
 	MIN=$$(docker version --format '{{.Server.MinAPIVersion}}' 2>/dev/null || echo '?')
 	echo "  Daemon-API: $$SRV   Minimum: $$MIN"
 	TV=$$($(COMPOSE) exec -T traefik traefik version 2>/dev/null | awk '/^Version:/{print $$2}')
-	echo "  Traefik:    $${TV:-(nicht ermittelbar)}   (noetig: >= 3.6.1)"
+	echo "  Traefik:    $${TV:-(nicht ermittelbar)}   (nötig: >= 3.6.1)"
 	if $(COMPOSE) logs traefik 2>/dev/null | grep -q 'is too old'; then 	  echo ""; 	  echo "  FEHLER: Traefik kann die Docker-API nicht sprechen."; 	  echo "          Es entstehen KEINE Router -- jede Anfrage landet beim Default-Zertifikat."; 	  echo "          Traefik vor 3.6.1 pinnt die Docker-API auf 1.24; Docker Engine 29"; 	  echo "          verlangt mindestens $$MIN. DOCKER_API_VERSION hilft nicht, die"; 	  echo "          Variable wird von Traefik ignoriert."; 	  echo ""; 	  echo "          Abhilfe:  git pull && make up      (nutzt traefik:v3.6)"; 	else 	  echo "  ok: keine API-Versionsfehler im Traefik-Log"; 	fi
 	echo ""
 	echo "--- 3. Router-Labels am App-Container ---"
-	docker inspect quiz-app-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container laeuft nicht"
+	docker inspect quiz-app-app --format '{{json .Config.Labels}}' 2>/dev/null | tr ',' '\n' | grep -i 'traefik' | sed 's/^/  /' || echo "  App-Container läuft nicht"
 	echo ""
 	echo "--- 4. DNS ---"
 	PUBIP=$$(curl -s --max-time 6 https://api.ipify.org || echo '?')
 	DNSIP=$$(getent ahostsv4 "$$DOMAIN" 2>/dev/null | awk '{print $$1}' | sort -u | tr '\n' ' ')
-	echo "  Server (oeffentlich): $$PUBIP"
+	echo "  Server (öffentlich): $$PUBIP"
 	echo "  A-Record $$DOMAIN: $${DNSIP:-(keine Antwort)}"
 	case " $$DNSIP " in *" $$PUBIP "*) echo "  ok: DNS zeigt auf diesen Server";; *) echo "  ACHTUNG: DNS zeigt NICHT auf diesen Server -- Let's Encrypt kann kein Zertifikat ausstellen";; esac
 	echo ""
 	echo "--- 5. Ports ---"
 	(ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep -E ':(80|443) ' | sed 's/^/  /' || echo "  nichts auf 80/443 gefunden"
 	echo ""
-	echo "--- 6. Erreichbarkeit von aussen ---"
+	echo "--- 6. Erreichbarkeit von außen ---"
 	curl -s -o /dev/null --max-time 10 -w "  http  -> HTTP %{http_code} (Redirect: %{redirect_url})\n" "http://$$DOMAIN/" || echo "  http  -> nicht erreichbar"
 	curl -sk -o /dev/null --max-time 10 -w "  https -> HTTP %{http_code}\n" "https://$$DOMAIN/" || echo "  https -> nicht erreichbar"
 	curl -s -o /dev/null --max-time 10 -w "  ACME-Pfad -> HTTP %{http_code}\n" "http://$$DOMAIN/.well-known/acme-challenge/probe" || true
 	echo ""
 	echo "--- 7. Zertifikat ---"
 	CN=$$(echo | openssl s_client -connect "$$DOMAIN:443" -servername "$$DOMAIN" 2>/dev/null | openssl x509 -noout -issuer -subject 2>/dev/null | sed 's/^/  /')
-	if [ -n "$$CN" ]; then echo "$$CN"; else echo "  kein TLS-Handshake moeglich"; fi
+	if [ -n "$$CN" ]; then echo "$$CN"; else echo "  kein TLS-Handshake möglich"; fi
 	if echo "$$CN" | grep -qi 'TRAEFIK DEFAULT CERT'; then 	  echo "  -> Default-Zertifikat: entweder greift kein Router oder ACME ist fehlgeschlagen (siehe 2., 4. und 8.)"; 	fi
 	SIZE=$$($(COMPOSE) exec -T traefik sh -c 'wc -c < /letsencrypt/acme.json' 2>/dev/null | tr -d '\r ' || echo 0)
 	echo "  acme.json: $${SIZE:-0} Bytes"
@@ -195,7 +211,7 @@ doctor:
 	echo "--- 9. Images und Ressourcen ---"
 	docker image ls quiz-app --format '  {{.Repository}}:{{.Tag}}  {{.Size}}  erstellt {{.CreatedSince}}' 2>/dev/null | head -3 || true
 	if [ -z "$$(docker image ls -q quiz-app 2>/dev/null)" ]; then echo "  App-Image fehlt -- 'make up' baut es (dauert beim ersten Mal einige Minuten)."; fi
-	echo "  Speicher: $$(free -m 2>/dev/null | awk '/^Mem:/{print $$2" MB gesamt, "$$7" MB verfuegbar"}' || echo '?')"
+	echo "  Speicher: $$(free -m 2>/dev/null | awk '/^Mem:/{print $$2" MB gesamt, "$$7" MB verfügbar"}' || echo '?')"
 	echo "  Platte:   $$(df -h / 2>/dev/null | awk 'NR==2{print $$4" frei von "$$2}' || echo '?')"
 	echo ""
 	echo "--- 10. App ---"
@@ -206,7 +222,7 @@ doctor:
 secret:
 	@grep -E '^HOST_SECRET=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs
 
-## url: Oeffentliche URL ausgeben
+## url: Öffentliche URL ausgeben
 url:
 	@DOMAIN=$$(grep -E '^DOMAIN=' "$(ENV_FILE)" | head -n1 | cut -d '=' -f2- | tr -d '"' | tr -d "'" | xargs); \
 	echo "https://$$DOMAIN"
@@ -256,5 +272,5 @@ clean:
 	docker builder prune -f || true
 	rm -rf dist
 	@echo ""
-	@echo ">> Aufgeraeumt. Das Volume '$(LE_VOLUME)' mit den Let's-Encrypt-"
-	@echo ">> Zertifikaten wurde bewusst NICHT geloescht."
+	@echo ">> Aufgeräumt. Das Volume '$(LE_VOLUME)' mit den Let's-Encrypt-"
+	@echo ">> Zertifikaten wurde bewusst NICHT gelöscht."

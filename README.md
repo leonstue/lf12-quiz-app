@@ -649,6 +649,7 @@ Zusätzlich für Traefik (ebenfalls in der `.env` setzbar):
 
 | Befehl         | Wirkung                                                                  |
 | -------------- | ------------------------------------------------------------------------ |
+| `make help`    | Alle Befehle mit Erklärung — auch als `make h` oder einfach `make`        |
 | `make up`      | `.env` vorbereiten, `HOST_SECRET` erzeugen, bauen, starten, Status zeigen |
 | `make down`    | Container stoppen und entfernen — **Zertifikate bleiben erhalten**        |
 | `make restart` | Container neu starten                                                    |
@@ -662,6 +663,7 @@ Zusätzlich für Traefik (ebenfalls in der `.env` setzbar):
 | `make status`  | URLs und `HOST_SECRET` anzeigen                                          |
 | `make secret`  | nur das `HOST_SECRET` ausgeben                                           |
 | `make url`     | nur die öffentliche URL ausgeben                                         |
+| `make env`     | `.env` anlegen bzw. prüfen und `.pw` schreiben — läuft bei `up` mit       |
 
 Die Let's-Encrypt-Zertifikate liegen im benannten Volume `quiz-app-letsencrypt`. Weder
 `make down` noch `make clean` fassen dieses Volume an — es gibt in keinem Target ein
