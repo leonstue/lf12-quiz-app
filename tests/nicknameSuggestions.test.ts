@@ -4,8 +4,8 @@ import { NICKNAME_SUGGESTIONS, randomNickname } from '../src/client/lib/nickname
 import { NICKNAME_MAX_LENGTH, NICKNAME_MIN_LENGTH, nicknameKey, sanitizeNickname } from '../src/server/game/nickname.js';
 
 describe('Nickname-Vorschläge', () => {
-  it('bietet 50 Namen an', () => {
-    expect(NICKNAME_SUGGESTIONS).toHaveLength(50);
+  it('bietet 80 Namen an', () => {
+    expect(NICKNAME_SUGGESTIONS).toHaveLength(80);
   });
 
   it('enthält die Namen, die den Ton vorgeben', () => {
