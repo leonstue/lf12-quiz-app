@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, LogIn, Loader2 } from '@lucide/svelte';
+  import { ArrowLeft, Dices, LogIn, Loader2 } from '@lucide/svelte';
 
   import Backdrop from '../lib/components/Backdrop.svelte';
   import Brand from '../lib/components/Brand.svelte';
@@ -7,6 +7,7 @@
   import NoticeBar from '../lib/components/NoticeBar.svelte';
   import SoundToggle from '../lib/components/SoundToggle.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
+  import { randomNickname } from '../lib/nicknameSuggestions.js';
   import { navigate } from '../lib/router.svelte.js';
   import { probeRoom } from '../lib/socket.js';
 
@@ -23,6 +24,8 @@
   let roomHint = $state<string | null>(null);
   let submitting = $state(false);
   let probing = $state(false);
+  // Der Platzhalter wechselt bei jedem Aufruf der Seite.
+  let suggestion = $state(randomNickname());
 
   const trimmedNickname = $derived(nickname.trim());
   const savedSession = $derived(playerGame.session);
@@ -35,6 +38,13 @@
     roomCode = target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     target.value = roomCode;
     roomHint = null;
+  }
+
+  /** Setzt einen zufälligen Vorschlag ins Feld und zieht den Platzhalter nach. */
+  function rollNickname(): void {
+    nickname = randomNickname(nickname.trim());
+    suggestion = randomNickname(nickname);
+    error = null;
   }
 
   async function checkRoom(): Promise<void> {
@@ -122,14 +132,20 @@
           <p class="hint" class:ok={roomHint.startsWith('Raum gefunden')}>{roomHint}</p>
         {/if}
 
-        <label class="field-label" for="nickname">Nickname</label>
+        <div class="label-row">
+          <label class="field-label" for="nickname">Nickname</label>
+          <button type="button" class="dice" onclick={rollNickname}>
+            <Dices size={15} strokeWidth={2.2} />
+            Vorschlag
+          </button>
+        </div>
         <input
           id="nickname"
           class="field"
           type="text"
           autocomplete="nickname"
           maxlength="24"
-          placeholder="z. B. LifelineLisa"
+          placeholder="z. B. {suggestion}"
           bind:value={nickname}
           required
         />
@@ -208,6 +224,35 @@
     color: var(--color-ink-muted);
     font-size: 0.94rem;
     line-height: 1.55;
+  }
+
+  .label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .label-row .field-label {
+    margin-bottom: 0;
+  }
+
+  .dice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.1rem;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--color-brand);
+    cursor: pointer;
+  }
+
+  .dice:hover {
+    text-decoration: underline;
   }
 
   .field-label {

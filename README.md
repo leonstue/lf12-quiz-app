@@ -442,6 +442,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   │   │   ├── clock.svelte.ts     Countdown, folgt der Serverzeit
 │   │   │   ├── hostGame.svelte.ts  Host-Zustand und Kommandos
 │   │   │   ├── playerGame.svelte.ts Teilnehmer-Zustand, Reconnect
+│   │   │   ├── nicknameSuggestions.ts 30 Namen aus der Welt der Sequenzdiagramme
 │   │   │   ├── options.ts          Farb- und Formzuordnung A/B/C/D
 │   │   │   ├── router.svelte.ts    History-Router
 │   │   │   ├── socket.ts           Socket.IO-Client, Host-Login, Quizliste
@@ -485,7 +486,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 │   └── shared/                     Von Client und Server genutzt
 │       ├── types.ts                Domänentypen
 │       └── events.ts               Socket.IO-Eventtypen
-├── tests/                          Vitest (13 Dateien, 197 Tests)
+├── tests/                          Vitest (14 Dateien, 206 Tests)
 ├── public/                         favicon.svg, robots.txt
 ├── scripts/build-server.mjs        esbuild-Bundle des Servers
 ├── Dockerfile                      Multi-Stage, node:22-alpine, non-root
@@ -502,7 +503,7 @@ Der Client sendet ausschließlich „ich wähle B" — nie Punkte, nie Zeitstemp
 | Route              | Zweck                                                |
 | ------------------ | ---------------------------------------------------- |
 | `/`                | Landingpage mit „Quiz beitreten" und „Host"           |
-| `/join`            | Raumcode und Nickname eingeben                       |
+| `/join`            | Raumcode und Nickname eingeben (mit Namensvorschlag)  |
 | `/join/ABC123`     | wie oben, Raumcode ist vorbelegt (Ziel des QR-Codes) |
 | `/play`            | Teilnehmeransicht während des Spiels                 |
 | `/host`            | Host-Anmeldung, danach Quizauswahl und Konfiguration |
@@ -762,7 +763,7 @@ Zertifikat**. Die häufigsten Ursachen:
 npm test
 ```
 
-197 Tests in 13 Dateien decken ab:
+206 Tests in 14 Dateien decken ab:
 
 - **Bilder** — Pfadprüfung gegen Verzeichniswechsel und absolute Pfade, erlaubte Formate,
   vorhandene Dateien in den ausgelieferten Quizzen, XML-Wohlgeformtheit der mitgelieferten
@@ -784,6 +785,8 @@ npm test
 - **Nur eine Antwort pro Runde** — zweite Abgabe wird abgelehnt
 - **Deadline** — Antworten nach Ablauf plus Kulanz werden abgelehnt
 - **Nickname-Duplikate** — auch bei abweichender Schreibweise
+- **Nickname-Vorschläge** — 30 Namen, alle überstehen die Entschärfung unverändert, keiner
+  kollidiert mit einem anderen, der Würfel wiederholt sich nicht direkt
 - **Nickname-Entschärfung** — HTML-, Steuer- und Bidi-Zeichen werden entfernt
 - **Raumcode-Erzeugung** — Länge, lesbares Alphabet, Eindeutigkeit
 - **Host-Autorisierung** — Secret-Vergleich, Token-Ausgabe, Ablauf, Widerruf
@@ -838,7 +841,8 @@ Bewusste Entscheidungen, keine offenen Baustellen:
 2. **Eine Instanz.** Ohne gemeinsamen Zustand ist kein horizontales Skalieren möglich.
 3. **Beitritt nur in der Lobby.** Wer zu spät kommt, kann der laufenden Runde nicht mehr
    beitreten. Ein Reconnect bestehender Teilnehmer ist jederzeit möglich.
-4. **Nickname-Kollisionen pro Raum.** Zwei Teilnehmer können nicht denselben Namen nutzen.
+4. **Nickname-Kollisionen pro Raum.** Zwei Teilnehmer können nicht denselben Namen nutzen —
+   wer zuerst beitritt, behält ihn. Der zweite bekommt `NICKNAME_TAKEN` und wählt neu.
 5. **Ein Host-Secret für alle.** Es gibt keine Benutzerverwaltung und keine Rollen.
 6. **Host-Tokens überleben keinen Neustart.** Danach muss sich der Host erneut anmelden.
 7. **Ergebnisse leben nur bis zum Neustart.** Die Endkarte zeigt die vollständige
