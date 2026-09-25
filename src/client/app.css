@@ -42,6 +42,11 @@
   --animate-fade: fade 0.35s ease both;
   --animate-pulse-soft: pulse-soft 2.4s ease-in-out infinite;
   --animate-sweep: sweep 2.8s linear infinite;
+  /* Dauerhafte Bewegung. Absichtlich langsam: sie soll auffallen, wenn man
+     hinsieht, und verschwinden, wenn man liest. */
+  --animate-flow: flow 9s ease-in-out infinite;
+  --animate-breathe: breathe 6s ease-in-out infinite;
+  --animate-orbit: orbit 8s linear infinite;
 }
 
 @keyframes rise {
@@ -80,6 +85,65 @@
   }
   to {
     transform: translateY(100%);
+  }
+}
+
+/*
+ * Ein animierbarer Winkel. Ohne @property waere `--border-angle` nur Text und
+ * liesse sich nicht interpolieren; Browser ohne Unterstuetzung zeigen den
+ * Verlauf einfach unbewegt -- der Rahmen bleibt trotzdem vollstaendig.
+ */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes turn-border {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* Wandernder Verlauf -- nur background-position, also kein Layout-Aufwand. */
+@keyframes flow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+/* Umlaufendes Licht am Rand einer Flaeche. Rotiert wird ein Pseudo-Element,
+   nie die Box selbst -- das bleibt auf der GPU. */
+@keyframes orbit {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Lichtreflex, der einmal quer ueber eine Flaeche laeuft. */
+@keyframes sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%,
+  100% {
+    transform: translateX(220%);
   }
 }
 

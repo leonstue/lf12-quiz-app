@@ -50,7 +50,7 @@
   });
 </script>
 
-<Backdrop calm />
+<Backdrop calm traffic={phase === 'LOBBY'} />
 
 <div class="page" class:fixed-height={phase === 'QUESTION' || phase === 'LOCKED'}>
   <header class="head">
@@ -87,8 +87,14 @@
           Du bist im Raum <span class="code">{playerGame.roomState?.code ?? ''}</span>. Warte, bis der Host das Quiz
           startet.
         </p>
-        <div class="pulse-row" aria-hidden="true">
-          <span></span><span></span><span></span>
+        <!-- Warteanzeige als das, worum es geht: zwei Lifelines, die miteinander reden. -->
+        <div class="wait" aria-hidden="true">
+          <span class="line"></span>
+          <span class="line"></span>
+          <span class="line"></span>
+          <span class="hop hop-1"></span>
+          <span class="hop hop-2"></span>
+          <span class="hop hop-3"></span>
         </div>
         <p class="muted small">{playerGame.roomState?.playerCount ?? 0} Teilnehmer verbunden</p>
       </section>
@@ -305,10 +311,34 @@
   }
 
   .center-card {
+    position: relative;
+    overflow: hidden;
     margin: auto 0;
     padding: 2rem 1.5rem;
     text-align: center;
     animation: var(--animate-rise);
+  }
+
+  /* Ein Licht wandert die Oberkante entlang und rahmt die Wartezeit. */
+  .center-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 1px;
+    width: 55%;
+    background: linear-gradient(90deg, transparent, var(--color-brand), var(--color-accent), transparent);
+    animation: edge-run 7s ease-in-out infinite;
+  }
+
+  @keyframes edge-run {
+    0%,
+    100% {
+      transform: translateX(-60%);
+    }
+    50% {
+      transform: translateX(160%);
+    }
   }
 
   .big {
@@ -332,31 +362,147 @@
     letter-spacing: 0.2em;
     color: var(--color-brand);
     font-weight: 700;
+    animation: code-glow 4.5s ease-in-out infinite;
   }
 
-  .pulse-row {
-    display: flex;
-    justify-content: center;
-    gap: 0.5rem;
-    margin: 1.5rem 0 0.5rem;
+  @keyframes code-glow {
+    0%,
+    100% {
+      text-shadow: 0 0 0 transparent;
+    }
+    50% {
+      text-shadow: 0 0 14px color-mix(in oklab, var(--color-brand) 55%, transparent);
+    }
   }
 
-  .pulse-row span {
-    width: 0.55rem;
-    height: 0.55rem;
+  /*
+   * Drei Lifelines, zwischen denen Nachrichten hin- und herspringen. Solange
+   * hier etwas laeuft, weiss man ohne Text, dass die Verbindung steht.
+   */
+  .wait {
+    position: relative;
+    width: min(15rem, 78%);
+    height: 6rem;
+    margin: 1.7rem auto 1.1rem;
+  }
+
+  .wait .line {
+    position: absolute;
+    top: 0.75rem;
+    bottom: 0;
+    width: 1.5px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-brand) 90%, transparent),
+      color-mix(in oklab, var(--color-accent) 70%, transparent) 70%,
+      transparent
+    );
+  }
+
+  /* Der Kopf macht aus drei Strichen erkennbar drei Teilnehmer. */
+  .wait .line::before {
+    content: '';
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    width: 1.5rem;
+    height: 0.62rem;
+    margin-left: -0.75rem;
+    border-radius: 0.2rem;
+    border: 1px solid color-mix(in oklab, var(--color-brand) 60%, transparent);
+    background: color-mix(in oklab, var(--color-brand) 18%, transparent);
+    animation: var(--animate-breathe);
+  }
+
+  .wait .line:nth-child(2)::before {
+    border-color: color-mix(in oklab, var(--color-teal) 60%, transparent);
+    background: color-mix(in oklab, var(--color-teal) 18%, transparent);
+    animation-delay: 1.2s;
+  }
+
+  .wait .line:nth-child(3)::before {
+    border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+    background: color-mix(in oklab, var(--color-accent) 18%, transparent);
+    animation-delay: 2.4s;
+  }
+
+  .wait .line:nth-child(1) {
+    left: 12%;
+  }
+
+  .wait .line:nth-child(2) {
+    left: 50%;
+  }
+
+  .wait .line:nth-child(3) {
+    left: 88%;
+  }
+
+  .hop {
+    position: absolute;
+    height: 2px;
     border-radius: 999px;
-    background: var(--color-brand);
-    animation: var(--animate-pulse-soft);
+    overflow: hidden;
   }
 
-  .pulse-row span:nth-child(2) {
-    animation-delay: 0.3s;
-    background: var(--color-accent);
+  .hop::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 38%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, currentcolor);
+    box-shadow: 0 0 8px 0 currentcolor;
+    animation: hop-travel 3.2s cubic-bezier(0.5, 0, 0.3, 1) infinite;
   }
 
-  .pulse-row span:nth-child(3) {
-    animation-delay: 0.6s;
-    background: var(--color-teal);
+  .hop-1 {
+    top: 26%;
+    left: 12%;
+    width: 38%;
+    color: var(--color-brand);
+  }
+
+  /* Die Antwort laeuft zurueck -- gespiegelt statt zweiter Keyframes. */
+  .hop-2 {
+    top: 52%;
+    left: 50%;
+    width: 38%;
+    color: var(--color-teal);
+    transform: scaleX(-1);
+  }
+
+  .hop-2::after {
+    animation-delay: 1.05s;
+  }
+
+  .hop-3 {
+    top: 78%;
+    left: 50%;
+    width: 38%;
+    color: var(--color-accent);
+  }
+
+  .hop-3::after {
+    animation-delay: 2.1s;
+  }
+
+  @keyframes hop-travel {
+    0% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+    }
+    68%,
+    100% {
+      transform: translateX(263%);
+      opacity: 0;
+    }
   }
 
   .question-view {

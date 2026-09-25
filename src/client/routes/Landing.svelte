@@ -15,7 +15,7 @@
   ];
 </script>
 
-<Backdrop />
+<Backdrop traffic />
 
 <div class="page">
   <header class="head">
@@ -105,6 +105,15 @@
     margin: 0 0 1.25rem;
   }
 
+  /*
+   * Der Verlauf im Wort "Quiz" wandert langsam hin und her. Er ist breiter
+   * als der Text, sonst gaebe es nichts zu verschieben.
+   */
+  .title :global(.gradient-text) {
+    background-size: 240% 100%;
+    animation: var(--animate-flow);
+  }
+
   .lead {
     max-width: 40rem;
     margin: 0 0 2rem;
@@ -126,6 +135,15 @@
     font-size: 1.05rem;
   }
 
+  /*
+   * Nur der Haupteinstieg bewegt sich, und nur hier auf der Startseite --
+   * im laufenden Quiz soll kein Knopf die Aufmerksamkeit ziehen.
+   */
+  .actions :global(.btn-primary) {
+    background-size: 220% 100%;
+    animation: var(--animate-flow);
+  }
+
   .features {
     list-style: none;
     margin: 0;
@@ -137,12 +155,39 @@
 
   /* Bewusst flach: nur Symbol und Begriff, damit die Zeile nicht zur Textwand wird. */
   .feature {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: 0.55rem;
     padding: 0.6rem 0.95rem;
     border-radius: 999px;
     color: var(--color-ink-muted);
+  }
+
+  /*
+   * Ein Lichtreflex laeuft der Reihe nach durch die vier Begriffe -- eine Welle,
+   * kein Lauflicht: zwischen zwei Durchgaengen liegen zwoelf Sekunden Ruhe.
+   */
+  .feature::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(100deg, transparent, rgb(255 255 255 / 9%), transparent);
+    animation: sheen 12s ease-in-out infinite;
+  }
+
+  .feature:nth-child(2)::after {
+    animation-delay: 0.7s;
+  }
+
+  .feature:nth-child(3)::after {
+    animation-delay: 1.4s;
+  }
+
+  .feature:nth-child(4)::after {
+    animation-delay: 2.1s;
   }
 
   .feature :global(svg) {
@@ -162,6 +207,10 @@
     color: var(--color-ink);
     background: rgb(56 189 248 / 10%);
     border-color: rgb(56 189 248 / 35%);
+  }
+
+  .feature.accent :global(svg) {
+    animation: var(--animate-breathe);
   }
 
   .feature.accent h2 {

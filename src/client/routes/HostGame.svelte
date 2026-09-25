@@ -174,7 +174,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<Backdrop />
+<Backdrop traffic={phase === 'LOBBY'} />
 
 <div class="stage">
   <header class="top">
@@ -233,7 +233,7 @@
               <span class="label-mono">Join</span>
               <span class="join-value">{joinHost || 'diese Adresse'}</span>
             </div>
-            <div class="join-block">
+            <div class="join-block code-block">
               <span class="label-mono">Code</span>
               <span class="code-value">{room.code}</span>
             </div>
@@ -260,7 +260,7 @@
           <span class="label-mono">{room.playerCount} Teilnehmer verbunden</span>
         </div>
         {#if players.length === 0}
-          <p class="muted">Noch niemand beigetreten. Die Liste aktualisiert sich automatisch.</p>
+          <p class="muted waiting">Noch niemand beigetreten. Die Liste aktualisiert sich automatisch.</p>
         {:else}
           <ul class="chips">
             {#each players as player (player.id)}
@@ -587,6 +587,8 @@
 
   .quiz-title {
     font-size: clamp(1.8rem, 4.6vw, 3.6rem);
+    background-size: 240% 100%;
+    animation: var(--animate-flow);
   }
 
   .hero-title.small {
@@ -638,6 +640,32 @@
     overflow-wrap: anywhere;
   }
 
+  /*
+   * Der Code ist das, was zwanzig Leute gleichzeitig abtippen. Er bekommt den
+   * einzigen auffaelligen Effekt der Seite: einen Rahmen, in dem ein Licht
+   * umlaeuft. Der Verlauf sitzt in der border-box, die Fuellung in der
+   * padding-box -- so leuchtet nur der Rand.
+   */
+  .code-block {
+    /* 2px, damit der Lauf auch vom anderen Ende des Raums zu sehen ist. */
+    border-width: 2px;
+    border-color: transparent;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 2%)) padding-box,
+      /* Deckende Basis: ohne sie schiene das umlaufende Licht mitten in den
+         Block hinein statt nur am Rand entlang. */
+      linear-gradient(var(--color-panel), var(--color-panel)) padding-box,
+      conic-gradient(
+          from var(--border-angle),
+          var(--color-line) 0deg 150deg,
+          var(--color-brand) 215deg,
+          var(--color-accent) 265deg,
+          var(--color-line) 330deg
+        )
+        border-box;
+    animation: turn-border 9s linear infinite;
+  }
+
   .code-value {
     font-family: var(--font-mono);
     font-size: clamp(2.4rem, 7vw, 4.5rem);
@@ -645,9 +673,11 @@
     letter-spacing: 0.14em;
     line-height: 1;
     background: linear-gradient(100deg, #7dd3fc, #a78bfa 60%, #2dd4bf);
+    background-size: 220% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    animation: var(--animate-flow);
   }
 
   .lobby-hint {
@@ -678,6 +708,30 @@
     margin-bottom: 0.6rem;
   }
 
+  /* Solange niemand da ist, laeuft ein Licht durch den Satz: wir horchen noch. */
+  .waiting {
+    background: linear-gradient(
+      100deg,
+      var(--color-ink-muted) 35%,
+      var(--color-brand) 50%,
+      var(--color-ink-muted) 65%
+    );
+    background-size: 280% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: waiting-sweep 5.5s linear infinite;
+  }
+
+  @keyframes waiting-sweep {
+    from {
+      background-position: 120% 50%;
+    }
+    to {
+      background-position: -60% 50%;
+    }
+  }
+
   .chips {
     list-style: none;
     margin: 0;
@@ -694,7 +748,19 @@
     border: 1px solid rgb(56 189 248 / 28%);
     font-size: 0.88rem;
     font-weight: 600;
-    animation: var(--animate-fade);
+    /* Wer beitritt, soll sich am Beamer auch ankommen sehen. */
+    animation: chip-in 0.42s cubic-bezier(0.22, 1.4, 0.4, 1) both;
+  }
+
+  @keyframes chip-in {
+    from {
+      opacity: 0;
+      transform: translateY(7px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .player-chip.offline {
