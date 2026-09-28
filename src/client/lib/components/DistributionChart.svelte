@@ -133,7 +133,9 @@
     border-radius: 0.5rem;
     transform-origin: left center;
     animation: grow-bar 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
-    animation-delay: var(--delay);
+    /* 170 ms Vorlauf: erst ist der Phasenwechsel fertig, dann waechst der
+       Balken. Sonst laeuft beides uebereinander und wirkt hektisch. */
+    animation-delay: calc(170ms + var(--delay));
   }
 
   .is-correct .bar {

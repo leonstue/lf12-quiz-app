@@ -350,7 +350,14 @@
   *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+    /*
+     * Auch die Verzoegerung muss weg. Die Phasenuebergaenge starten versetzt,
+     * damit sich zwei Ansichten nicht ueberlagern; bliebe der Versatz stehen,
+     * waere der Schirm genau so lange leer, wie der Uebergang sonst dauert.
+     */
+    animation-delay: 0s !important;
     transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }

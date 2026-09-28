@@ -59,6 +59,8 @@
 
 <style>
   .option {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     gap: 0.85rem;
@@ -103,8 +105,39 @@
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--option-color) 65%, transparent) inset;
   }
 
+  /*
+   * Quittung fuer die Abgabe: ein Schein laeuft einmal von der Mitte nach
+   * aussen. Die Animation startet, sobald die Klasse dazukommt, und laeuft
+   * genau einmal -- der Knopf selbst wird dabei nicht neu gebaut.
+   */
+  .option.selected::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(60% 120% at 50% 50%, color-mix(in oklab, var(--option-color) 45%, transparent), transparent 70%);
+    animation: pick-flash 0.62s ease-out both;
+    pointer-events: none;
+  }
+
+  @keyframes pick-flash {
+    0% {
+      opacity: 0;
+      transform: scale(0.75);
+    }
+    35% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.35);
+    }
+  }
+
   .option.dimmed {
     opacity: 0.42;
+    /* Etwas zurueckgenommen statt nur blasser -- das trennt die Wahl klarer. */
+    transform: scale(0.985);
   }
 
   .option.correct {

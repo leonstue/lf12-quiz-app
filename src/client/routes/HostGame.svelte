@@ -29,6 +29,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
+  import { revealItem, stageIn, stageOut } from '../lib/transitions.js';
 
   interface Props {
     code: string;
@@ -105,6 +106,20 @@
   const canEnd = $derived(phase !== 'FINISHED' && !hostGame.busy);
   const isLastRound = $derived((room?.roundIndex ?? -1) + 1 >= (room?.totalRounds ?? 0));
 
+  /**
+   * Beim Sperren einer laufenden Frage soll die Ansicht stehen bleiben, beim
+   * Rundenwechsel dagegen wirklich wechseln -- darum steckt die Rundennummer
+   * im Schluessel und QUESTION teilt ihn sich mit LOCKED.
+   */
+  const stageKey = $derived.by(() => {
+    const round = room?.roundIndex ?? 0;
+    if (loading) return 'loading';
+    if (phase === 'QUESTION' || phase === 'LOCKED') return `frage-${round}`;
+    if (phase === 'REVEAL') return `reveal-${round}`;
+    if (phase === 'LEADERBOARD') return `board-${round}`;
+    return phase ?? 'leer';
+  });
+
   function toggleFullscreen(): void {
     if (typeof document === 'undefined') return;
     if (!document.fullscreenElement) {
@@ -174,7 +189,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<Backdrop traffic={phase === 'LOBBY'} />
+<Backdrop traffic calm={phase === 'QUESTION' || phase === 'LOCKED'} />
 
 <div class="stage">
   <header class="top">
@@ -212,7 +227,9 @@
   </div>
 
   <main class="content">
-    {#if loading}
+    {#key stageKey}
+      <div class="stage-slot" in:stageIn out:stageOut>
+        {#if loading}
       <section class="center">
         <h1 class="headline hero-title">Session wird geladen …</h1>
       </section>
@@ -318,7 +335,7 @@
         </div>
 
         <aside class="reveal-right" class:visible={hostGame.revealHighlight}>
-          <div class="solution-card panel">
+          <div class="solution-card panel" in:revealItem={{ index: 0 }}>
             <span class="label-mono">Richtige Antwort</span>
             <div class="solution-answer">
               <span class="solution-letter">{reveal.correctAnswer}</span>
@@ -327,12 +344,12 @@
               </span>
             </div>
           </div>
-          <div class="explain-card panel">
+          <div class="explain-card panel" in:revealItem={{ index: 1 }}>
             <span class="label-mono">Erklärung</span>
             <p>{reveal.explanation}</p>
           </div>
 
-          <div class="detail-card panel">
+          <div class="detail-card panel" in:revealItem={{ index: 2 }}>
             {#if hostGame.roundDetailVisible && hostGame.review && detailSlot >= 0}
               <RoundAnswers
                 round={hostGame.review.rounds[detailSlot]}
@@ -398,12 +415,14 @@
           </div>
         </div>
       </section>
-    {:else}
-      <section class="center">
-        <h1 class="headline hero-title">Bereit</h1>
-        <p class="muted">Nächsten Schritt über die Steuerung unten auslösen.</p>
-      </section>
-    {/if}
+        {:else}
+          <section class="center">
+            <h1 class="headline hero-title">Bereit</h1>
+            <p class="muted">Nächsten Schritt über die Steuerung unten auslösen.</p>
+          </section>
+        {/if}
+      </div>
+    {/key}
   </main>
 
   <footer class="controls">
@@ -562,13 +581,24 @@
     display: none;
   }
 
+  /*
+   * Grid, damit die aus- und die einlaufende Phase im selben Feld liegen.
+   * Untereinander gestapelt wuerde die Beameransicht beim Wechsel springen.
+   */
   .content {
     flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .stage-slot {
+    grid-area: 1 / 1;
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
     min-height: 0;
-    overflow: hidden;
   }
 
   .center {

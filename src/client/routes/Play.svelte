@@ -11,6 +11,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
+  import { revealItem, stageIn, stageOut } from '../lib/transitions.js';
 
   let restoring = $state(true);
 
@@ -21,8 +22,26 @@
   const selected = $derived(playerGame.selectedAnswer);
   const standing = $derived(playerGame.standing);
 
+  /**
+   * Schluessel fuer den Phasenwechsel. QUESTION und LOCKED teilen ihn sich --
+   * beim Sperren darf die Frage nicht neu einfliegen. Die Rundennummer steckt
+   * mit drin, damit die naechste Frage einen echten Wechsel ausloest.
+   */
+  const stageKey = $derived.by(() => {
+    const round = playerGame.roomState?.roundIndex ?? 0;
+    if (restoring) return 'restoring';
+    if (phase === 'QUESTION' || phase === 'LOCKED') return `frage-${round}`;
+    if (phase === 'REVEAL') return `reveal-${round}`;
+    return phase;
+  });
+
   function optionState(id: AnswerId): 'none' | 'correct' | 'wrong' | 'dimmed' {
-    if (!personal || phase === 'QUESTION') return 'none';
+    // Nach der eigenen Wahl treten die uebrigen Optionen zurueck, damit klar
+    // ist, was abgeschickt wurde.
+    if (phase === 'QUESTION' || phase === 'LOCKED') {
+      return selected && id !== selected ? 'dimmed' : 'none';
+    }
+    if (!personal) return 'none';
     if (id === personal.correctAnswer) return 'correct';
     if (id === personal.selected) return 'wrong';
     return 'dimmed';
@@ -50,7 +69,7 @@
   });
 </script>
 
-<Backdrop calm traffic={phase === 'LOBBY'} />
+<Backdrop calm traffic />
 
 <div class="page" class:fixed-height={phase === 'QUESTION' || phase === 'LOCKED'}>
   <header class="head">
@@ -74,7 +93,9 @@
   </div>
 
   <main class="main">
-    {#if restoring}
+    {#key stageKey}
+      <div class="stage-slot" in:stageIn out:stageOut>
+        {#if restoring}
       <section class="panel center-card">
         <p class="label-mono">Verbinde</p>
         <h1 class="headline big">Sitzung wird geladen …</h1>
@@ -125,6 +146,7 @@
               text={answer.text}
               selected={selected === answer.id}
               disabled={selected !== null || phase !== 'QUESTION'}
+              state={optionState(answer.id)}
               compact={question.answers.length > 4}
               onselect={handleSelect}
             />
@@ -167,8 +189,10 @@
 
         {#if question}
           <div class="reveal-options">
-            {#each question.answers as answer (answer.id)}
-              <AnswerOption id={answer.id} text={answer.text} disabled state={optionState(answer.id)} />
+            {#each question.answers as answer, i (answer.id)}
+              <div in:revealItem={{ index: i }}>
+                <AnswerOption id={answer.id} text={answer.text} disabled state={optionState(answer.id)} />
+              </div>
             {/each}
           </div>
         {/if}
@@ -223,12 +247,14 @@
         {/if}
       </section>
     {:else}
-      <section class="panel center-card">
-        <p class="label-mono">Warten</p>
-        <h1 class="headline big">Gleich geht es weiter</h1>
-        <p class="muted">Der Host steuert den nächsten Schritt.</p>
-      </section>
-    {/if}
+          <section class="panel center-card">
+            <p class="label-mono">Warten</p>
+            <h1 class="headline big">Gleich geht es weiter</h1>
+            <p class="muted">Der Host steuert den nächsten Schritt.</p>
+          </section>
+        {/if}
+      </div>
+    {/key}
   </main>
 </div>
 
@@ -303,8 +329,20 @@
     display: none;
   }
 
+  /*
+   * Grid statt Flex: Die aus- und die einlaufende Phase liegen im selben Feld
+   * uebereinander. Ohne das wuerde der Inhalt waehrend des Wechsels springen,
+   * weil kurz zwei Ansichten untereinander stuenden.
+   */
   .main {
     flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .stage-slot {
+    grid-area: 1 / 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -589,9 +627,45 @@
   }
 
   .result {
+    position: relative;
+    overflow: hidden;
     padding: 1.5rem 1.25rem;
     animation: var(--animate-rise);
     border-width: 1px;
+  }
+
+  /*
+   * Ein einmaliger Schein in der Farbe des Ergebnisses. Er startet erst, wenn
+   * der Phasenwechsel durch ist, und verglimmt von selbst -- kein Blitz ueber
+   * den ganzen Schirm, sondern nur auf der Karte, um die es geht.
+   */
+  .result::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    animation: result-flash 1.2s ease-out 170ms both;
+  }
+
+  .result.correct::before {
+    background: radial-gradient(90% 70% at 50% 0%, color-mix(in oklab, var(--color-good) 32%, transparent), transparent 75%);
+  }
+
+  .result.wrong::before {
+    background: radial-gradient(90% 70% at 50% 0%, color-mix(in oklab, var(--color-bad) 26%, transparent), transparent 75%);
+  }
+
+  @keyframes result-flash {
+    0% {
+      opacity: 0;
+    }
+    22% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
   }
 
   .result.correct {

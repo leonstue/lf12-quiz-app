@@ -10,6 +10,11 @@
   let { progress, seconds, locked = false, compact = false }: Props = $props();
 
   const critical = $derived(!locked && seconds <= 5);
+  /*
+   * Gesperrt wird auch, wenn alle geantwortet haben -- dann ist die Zeit eben
+   * nicht abgelaufen, und genau das soll dort auch nicht stehen.
+   */
+  const lockedLabel = $derived(seconds > 0 ? 'Antworten gesperrt' : 'Zeit abgelaufen');
   const width = $derived(`${Math.max(0, Math.min(1, progress)) * 100}%`);
 </script>
 
@@ -18,14 +23,14 @@
   class:compact
   role="timer"
   aria-live="off"
-  aria-label={locked ? 'Zeit abgelaufen' : `${seconds} Sekunden verbleibend`}
+  aria-label={locked ? lockedLabel : `${seconds} Sekunden verbleibend`}
 >
   <div class="track">
     <div class="fill" class:critical class:locked style={`width:${width}`}></div>
   </div>
   <div class="value tabular" class:critical>
     {#if locked}
-      <span class="label-mono">Zeit abgelaufen</span>
+      <span class="label-mono">{lockedLabel}</span>
     {:else}
       {seconds}<span class="unit">s</span>
     {/if}
