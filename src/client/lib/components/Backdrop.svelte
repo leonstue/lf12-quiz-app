@@ -27,9 +27,20 @@
   <div class="glow glow-1"></div>
   <div class="glow glow-2"></div>
   <div class="glow glow-3"></div>
+
+  <!-- Zwei Sternenebenen mit unterschiedlichem Tempo ergeben Tiefe. -->
+  <div class="stars stars-far"></div>
+  <div class="stars stars-near"></div>
+
   <div class="grid-bg grid"></div>
+  <div class="ticks"></div>
 
   {#if traffic}
+    <!-- Ein Scan zieht alle 26 Sekunden einmal durchs Bild. -->
+    <div class="scan"></div>
+    <div class="ping ping-1"></div>
+    <div class="ping ping-2"></div>
+
     <div class="traffic">
       {#each MESSAGES as message (message.top)}
         <span
@@ -68,6 +79,18 @@
       </linearGradient>
     </defs>
   </svg>
+  <!--
+    HUD-Winkel. Als vier Kaesten in Pixeln statt als gestrecktes SVG -- sonst
+    haetten die Ecken je nach Fensterformat verschiedene Winkel.
+  -->
+  <div class="hud">
+    <span class="corner tl"></span>
+    <span class="corner tr"></span>
+    <span class="corner br"></span>
+    <span class="corner bl"></span>
+  </div>
+
+  <div class="grain"></div>
   <div class="vignette"></div>
 </div>
 
@@ -136,10 +159,90 @@
     }
   }
 
+  /* ------------------------------------------------------------ Sterne */
+
+  /*
+   * Zwei Kachelmuster statt vieler Einzelelemente: das sind zwei Animationen
+   * fuer ein ganzes Sternenfeld. Die Ebenen laufen unterschiedlich schnell,
+   * das ergibt Tiefe. `alternate` spart einen Sprung am Schleifenende -- bei
+   * dreieinhalb Minuten Laufzeit faellt die Umkehr niemandem auf.
+   */
+  .stars {
+    position: absolute;
+    inset: -12%;
+  }
+
+  .stars-far {
+    background-image:
+      radial-gradient(1px 1px at 13% 21%, rgb(219 234 254 / 55%), transparent),
+      radial-gradient(1px 1px at 47% 9%, rgb(186 230 253 / 45%), transparent),
+      radial-gradient(1px 1px at 78% 33%, rgb(226 232 240 / 40%), transparent),
+      radial-gradient(1px 1px at 31% 58%, rgb(191 219 254 / 50%), transparent),
+      radial-gradient(1px 1px at 63% 71%, rgb(224 231 255 / 35%), transparent),
+      radial-gradient(1px 1px at 88% 84%, rgb(186 230 253 / 45%), transparent),
+      radial-gradient(1px 1px at 8% 88%, rgb(226 232 240 / 30%), transparent);
+    background-size: 530px 530px;
+    opacity: 0.5;
+    animation: star-far 240s ease-in-out infinite alternate;
+  }
+
+  .stars-near {
+    background-image:
+      radial-gradient(1.6px 1.6px at 22% 14%, rgb(125 211 252 / 70%), transparent),
+      radial-gradient(1.6px 1.6px at 68% 26%, rgb(255 255 255 / 55%), transparent),
+      radial-gradient(1.4px 1.4px at 41% 47%, rgb(167 139 250 / 60%), transparent),
+      radial-gradient(1.6px 1.6px at 84% 62%, rgb(255 255 255 / 45%), transparent),
+      radial-gradient(1.4px 1.4px at 15% 76%, rgb(45 212 191 / 55%), transparent);
+    background-size: 370px 370px;
+    opacity: 0.55;
+    animation:
+      star-near 150s ease-in-out infinite alternate,
+      twinkle 9s ease-in-out infinite;
+  }
+
+  @keyframes star-far {
+    to {
+      transform: translate3d(2.5%, -1.8%, 0);
+    }
+  }
+
+  @keyframes star-near {
+    to {
+      transform: translate3d(-4%, 2.6%, 0);
+    }
+  }
+
+  /* Szintillation fuer das ganze Feld -- billiger als einzeln blinkende Punkte. */
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 0.68;
+    }
+  }
+
   .grid {
     position: absolute;
     inset: 0;
     mask-image: radial-gradient(85% 70% at 50% 30%, #000 30%, transparent 100%);
+  }
+
+  /* Messmarken im Raster -- das Gitter bekommt dadurch etwas Technisches. */
+  .ticks {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cpath d='M80 74v12M74 80h12' stroke='%2338bdf8' stroke-width='1' stroke-opacity='0.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    opacity: 0.35;
+    mask-image: radial-gradient(70% 60% at 50% 45%, transparent 25%, #000 90%);
+    animation: ticks-drift 120s linear infinite;
+  }
+
+  @keyframes ticks-drift {
+    to {
+      background-position: 160px 160px;
+    }
   }
 
   .lifelines {
@@ -232,6 +335,178 @@
     opacity: 0.55;
   }
 
+  /* ------------------------------------------------- Scan, Ping, Rahmen */
+
+  /*
+   * Der Scan ist der eine auffaellige Moment im Hintergrund: ein weiches Band
+   * zieht in 26 Sekunden einmal durchs Bild und laesst danach lange Ruhe.
+   */
+  .scan {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -30vh;
+    height: 30vh;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      rgb(56 189 248 / 4%) 55%,
+      rgb(125 211 252 / 7%) 88%,
+      transparent
+    );
+    animation: scan-down 26s cubic-bezier(0.4, 0, 0.55, 1) infinite;
+  }
+
+  /* Die scharfe Kante unten macht aus dem Schleier einen Scanner. */
+  .scan::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-brand) 55%, transparent) 30%,
+      color-mix(in oklab, var(--color-brand) 55%, transparent) 70%,
+      transparent
+    );
+  }
+
+  @keyframes scan-down {
+    0% {
+      transform: translateY(0);
+      opacity: 0;
+    }
+    7% {
+      opacity: 1;
+    }
+    48% {
+      opacity: 1;
+    }
+    58% {
+      transform: translateY(132vh);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(132vh);
+      opacity: 0;
+    }
+  }
+
+  /* Zwei Radarringe, weit auseinander getaktet. */
+  /* vmin, nicht vmax: sonst richtet sich der Ring auf dem Handy nach der
+     Hoehe und deckt das halbe Display ab. */
+  .ping {
+    position: absolute;
+    width: 16vmin;
+    height: 16vmin;
+    border-radius: 50%;
+    border: 1px solid color-mix(in oklab, var(--color-brand) 40%, transparent);
+  }
+
+  .ping-1 {
+    top: 12%;
+    left: 4%;
+    animation: ping-out 17s ease-out infinite;
+  }
+
+  .ping-2 {
+    right: 4%;
+    bottom: 10%;
+    border-color: color-mix(in oklab, var(--color-accent) 35%, transparent);
+    animation: ping-out 23s ease-out 8s infinite;
+  }
+
+  @keyframes ping-out {
+    0% {
+      transform: scale(0.25);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.28;
+    }
+    45% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+
+  .hud {
+    position: absolute;
+    inset: 0;
+  }
+
+  .corner {
+    position: absolute;
+    width: 1.4rem;
+    height: 1.4rem;
+    border: 1px solid color-mix(in oklab, var(--color-brand) 38%, transparent);
+    animation: corner-pulse 7s ease-in-out infinite;
+  }
+
+  .tl {
+    top: 0.85rem;
+    left: 0.85rem;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .tr {
+    top: 0.85rem;
+    right: 0.85rem;
+    border-left: 0;
+    border-bottom: 0;
+    animation-delay: 1.75s;
+  }
+
+  .br {
+    right: 0.85rem;
+    bottom: 0.85rem;
+    border-left: 0;
+    border-top: 0;
+    animation-delay: 3.5s;
+  }
+
+  .bl {
+    bottom: 0.85rem;
+    left: 0.85rem;
+    border-right: 0;
+    border-top: 0;
+    animation-delay: 5.25s;
+  }
+
+  @keyframes corner-pulse {
+    0%,
+    100% {
+      opacity: 0.35;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+
+  /*
+   * Feines Korn. Es bewegt sich nicht: die Textur soll dem Verlauf die
+   * Plastikglaette nehmen, nicht flimmern.
+   */
+  .grain {
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    /*
+     * Bewusst ohne mix-blend-mode: ein Blend ueber die volle Flaeche zwingt den
+     * Compositor, bei jeder Bewegung darunter neu zu mischen. Als einfache
+     * Deckschicht bleibt das Korn eine gecachte Textur.
+     */
+    opacity: 0.05;
+  }
+
   .vignette {
     position: absolute;
     inset: 0;
@@ -246,14 +521,33 @@
     opacity: 0.4;
   }
 
+  /* Auf Teilnehmer-Screens tritt alles Technische einen Schritt zurueck. */
+  .calm .stars {
+    opacity: 0.32;
+  }
+
+  .calm .ticks {
+    opacity: 0.18;
+  }
+
+  .calm .corner {
+    opacity: 0.22;
+    animation: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .lifelines line,
-    .glow {
+    .glow,
+    .stars,
+    .ticks,
+    .corner {
       animation: none;
     }
 
-    /* Ohne Bewegung ist eine wandernde Nachricht nur noch ein Fleck. */
-    .traffic {
+    /* Ohne Bewegung sind das nur noch Flecken und Streifen. */
+    .traffic,
+    .scan,
+    .ping {
       display: none;
     }
   }
