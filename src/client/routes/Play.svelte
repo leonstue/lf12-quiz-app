@@ -11,7 +11,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
-  import { revealItem, stageIn, stageOut } from '../lib/transitions.js';
+  import { deckIn, deckOut, revealItem } from '../lib/transitions.js';
 
   let restoring = $state(true);
 
@@ -94,7 +94,7 @@
 
   <main class="main">
     {#key stageKey}
-      <div class="stage-slot" in:stageIn out:stageOut>
+      <div class="stage-slot" in:deckIn out:deckOut>
         {#if restoring}
       <section class="panel center-card">
         <p class="label-mono">Verbinde</p>

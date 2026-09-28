@@ -29,7 +29,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
-  import { revealItem, stageIn, stageOut } from '../lib/transitions.js';
+  import { flipIn, flipOut, revealItem } from '../lib/transitions.js';
 
   interface Props {
     code: string;
@@ -228,7 +228,7 @@
 
   <main class="content">
     {#key stageKey}
-      <div class="stage-slot" in:stageIn out:stageOut>
+      <div class="stage-slot" in:flipIn out:flipOut>
         {#if loading}
       <section class="center">
         <h1 class="headline hero-title">Session wird geladen …</h1>

@@ -13,6 +13,84 @@ import type { TransitionConfig } from 'svelte/transition';
 const OUT_MS = 170;
 const IN_MS = 380;
 
+const FLIP_OUT_MS = 340;
+const FLIP_IN_MS = 440;
+
+/**
+ * Kartendreher. Die alte Ansicht kippt um die Hochachse weg, die neue kommt
+ * von der anderen Seite herein -- wie eine Karte, die umgedreht wird.
+ *
+ * Beide Hälften drehen in dieselbe Richtung, sonst wirkt es wie ein Zurück-
+ * schnappen statt wie eine Drehung. Die Perspektive steckt in der Transform
+ * selbst; am Container gesetzt würden alle Karten dieselbe Fluchtlinie teilen
+ * und die Drehung sähe bei breiten Ansichten schief aus.
+ *
+ * Kein blur hier: Weichzeichner zwingt den Browser, die 3D-Ebene in eine
+ * Textur zu rastern, und genau das frisst bei grossen Flächen die Bildrate.
+ */
+export function flipIn(_node: Element, { duration = FLIP_IN_MS, delay = FLIP_OUT_MS - 60 } = {}): TransitionConfig {
+  return {
+    duration,
+    delay,
+    easing: cubicOut,
+    css: (t, u) => `
+      opacity: ${Math.min(1, t * 2.4)};
+      transform: perspective(1800px) rotateY(${u * 88}deg) translateZ(${u * -90}px) scale(${0.94 + t * 0.06});
+      transform-origin: 50% 50%;
+      backface-visibility: hidden;
+    `,
+  };
+}
+
+export function flipOut(_node: Element, { duration = FLIP_OUT_MS } = {}): TransitionConfig {
+  return {
+    duration,
+    easing: cubicIn,
+    css: (t, u) => `
+      opacity: ${Math.min(1, t * 2.4)};
+      transform: perspective(1800px) rotateY(${u * -88}deg) translateZ(${u * -90}px) scale(${1 - u * 0.06});
+      transform-origin: 50% 50%;
+      backface-visibility: hidden;
+    `,
+  };
+}
+
+/**
+ * Teilnehmeransicht: die Karte wird nach hinten weggekippt und die nächste
+ * kommt von unten aus dem Stapel -- eine Drehung um die Querachse.
+ *
+ * Bewusst anders als der Dreher am Beamer: Auf dem Handy liegt der Schirm
+ * hochkant in der Hand, da liest sich eine Bewegung nach oben natürlicher als
+ * eine seitliche Drehung. Am Beamer ist es umgekehrt -- dort ist die Breite
+ * die Bühne.
+ */
+export function deckIn(_node: Element, { duration = 420, delay = 260 } = {}): TransitionConfig {
+  return {
+    duration,
+    delay,
+    easing: cubicOut,
+    css: (t, u) => `
+      opacity: ${Math.min(1, t * 2.2)};
+      transform: perspective(1200px) rotateX(${u * -32}deg) translate3d(0, ${u * 46}px, ${u * -120}px);
+      transform-origin: 50% 0%;
+      backface-visibility: hidden;
+    `,
+  };
+}
+
+export function deckOut(_node: Element, { duration = 300 } = {}): TransitionConfig {
+  return {
+    duration,
+    easing: cubicIn,
+    css: (t, u) => `
+      opacity: ${Math.min(1, t * 2.2)};
+      transform: perspective(1200px) rotateX(${u * 26}deg) translate3d(0, ${u * -38}px, ${u * -140}px);
+      transform-origin: 50% 100%;
+      backface-visibility: hidden;
+    `,
+  };
+}
+
 export interface StageOptions {
   /** Richtung des Einlaufs in Pixeln -- positiv heißt von unten. */
   y?: number;

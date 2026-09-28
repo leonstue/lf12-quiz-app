@@ -21,8 +21,20 @@
 
   const meta = $derived(OPTION_META[id]);
 
-  function handleClick(): void {
+  /**
+   * Die Fülle startet dort, wo der Finger war. Der Ursprung geht direkt als
+   * CSS-Variable ans Element -- ein reaktiver Zustand wäre hier Ballast, und
+   * `state` ist als Prop-Name ohnehin schon vergeben.
+   */
+  function handleClick(event: MouseEvent): void {
     if (disabled) return;
+    const element = event.currentTarget as HTMLElement;
+    const box = element.getBoundingClientRect();
+    // Tastaturbedienung meldet 0/0 -- dann bleibt es bei der Mitte aus dem CSS.
+    if (event.clientX > 0 || event.clientY > 0) {
+      element.style.setProperty('--origin-x', `${((event.clientX - box.left) / box.width) * 100}%`);
+      element.style.setProperty('--origin-y', `${((event.clientY - box.top) / box.height) * 100}%`);
+    }
     onselect?.(id);
   }
 </script>
@@ -41,6 +53,8 @@
   aria-label={`${meta.label}: ${text}`}
   onclick={handleClick}
 >
+  <span class="fill" aria-hidden="true"></span>
+
   <span class="badge">
     <OptionGlyph {id} size={20} muted={state === 'dimmed'} />
     <span class="letter">{id}</span>
@@ -106,32 +120,71 @@
   }
 
   /*
-   * Quittung fuer die Abgabe: ein Schein laeuft einmal von der Mitte nach
-   * aussen. Die Animation startet, sobald die Klasse dazukommt, und laeuft
-   * genau einmal -- der Knopf selbst wird dabei nicht neu gebaut.
+   * Die Fuelle laeuft vom Finger aus ueber das ganze Feld. Ein Kreis, der bis
+   * ueber die Ecken hinauswaechst -- 170 % reichen von jeder Position aus.
+   * Skaliert wird der Kreis, nie die Box: das bleibt auf der GPU, waehrend
+   * eine wachsende Breite jedes Bild neu umbrechen wuerde.
    */
-  .option.selected::before {
-    content: '';
+  .fill {
     position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: radial-gradient(60% 120% at 50% 50%, color-mix(in oklab, var(--option-color) 45%, transparent), transparent 70%);
-    animation: pick-flash 0.62s ease-out both;
+    top: var(--origin-y, 50%);
+    left: var(--origin-x, 50%);
+    width: 170%;
+    aspect-ratio: 1;
+    margin: -85% 0 0 -85%;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      color-mix(in oklab, var(--option-color) 88%, transparent) 0%,
+      color-mix(in oklab, var(--option-color) 58%, transparent) 55%,
+      color-mix(in oklab, var(--option-color) 24%, transparent) 100%
+    );
+    transform: scale(0);
+    opacity: 0;
     pointer-events: none;
   }
 
-  @keyframes pick-flash {
+  .option.selected .fill {
+    animation: pick-fill 0.66s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes pick-fill {
     0% {
-      opacity: 0;
-      transform: scale(0.75);
+      transform: scale(0);
+      opacity: 0.95;
     }
-    35% {
-      opacity: 1;
+    70% {
+      opacity: 0.6;
     }
     100% {
-      opacity: 0;
-      transform: scale(1.35);
+      transform: scale(1);
+      opacity: 0.34;
     }
+  }
+
+  /* Der gewaehlte Knopf federt einmal kurz nach. */
+  .option.selected {
+    animation: pick-pop 0.42s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+  }
+
+  @keyframes pick-pop {
+    0% {
+      transform: scale(1);
+    }
+    45% {
+      transform: scale(1.028);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  /* Abzeichen, Text und Haken bleiben ueber der Fuelle. */
+  .badge,
+  .text,
+  .marker {
+    position: relative;
+    z-index: 1;
   }
 
   .option.dimmed {

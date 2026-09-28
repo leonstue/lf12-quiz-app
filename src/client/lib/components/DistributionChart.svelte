@@ -59,10 +59,29 @@
     gap: 0.85rem;
   }
 
+  /*
+   * Jede Zeile klappt wie eine Schublade aus der Antwort heraus -- oben
+   * verankert, damit die Kopfzeile stehen bleibt und nur der Balkenbereich
+   * aufgeht.
+   */
   .row {
+    transform-origin: 50% 0%;
+    animation: row-unfold 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(170ms + var(--delay));
     transition:
       opacity 0.45s ease,
       transform 0.45s ease;
+  }
+
+  @keyframes row-unfold {
+    from {
+      opacity: 0;
+      transform: perspective(900px) rotateX(-72deg);
+    }
+    to {
+      opacity: 1;
+      transform: perspective(900px) rotateX(0deg);
+    }
   }
 
   .row.is-faded {
@@ -127,6 +146,7 @@
   }
 
   .bar {
+    position: relative;
     height: 100%;
     width: var(--target);
     background: linear-gradient(90deg, color-mix(in oklab, var(--option-color) 85%, transparent), var(--option-color));
@@ -136,6 +156,32 @@
     /* 170 ms Vorlauf: erst ist der Phasenwechsel fertig, dann waechst der
        Balken. Sonst laeuft beides uebereinander und wirkt hektisch. */
     animation-delay: calc(170ms + var(--delay));
+  }
+
+  /* Leuchtende Spitze, die mit dem Balken nach rechts schiebt. */
+  .bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 3px;
+    background: #fff;
+    box-shadow: 0 0 12px 2px color-mix(in oklab, var(--option-color) 85%, transparent);
+    animation: bar-tip 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(170ms + var(--delay));
+  }
+
+  @keyframes bar-tip {
+    0% {
+      opacity: 0;
+    }
+    25% {
+      opacity: 0.9;
+    }
+    100% {
+      opacity: 0;
+    }
   }
 
   .is-correct .bar {

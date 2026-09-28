@@ -79,8 +79,20 @@
     border-radius: 0.85rem;
     border: 1px solid var(--color-line);
     background: rgb(255 255 255 / 3%);
-    animation: var(--animate-rise);
-    animation-delay: var(--delay);
+    /* Die Plaetze fahren nacheinander von rechts ein, der erste zuerst. */
+    animation: rank-slide 0.52s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(170ms + var(--delay));
+  }
+
+  @keyframes rank-slide {
+    from {
+      opacity: 0;
+      transform: translate3d(38px, 0, 0) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .compact .row {
