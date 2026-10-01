@@ -1,4 +1,4 @@
-import { cubicOut, cubicIn } from 'svelte/easing';
+import { cubicOut, cubicIn, quadIn } from 'svelte/easing';
 import type { TransitionConfig } from 'svelte/transition';
 
 /**
@@ -64,29 +64,47 @@ export function flipOut(_node: Element, { duration = FLIP_OUT_MS } = {}): Transi
  * eine seitliche Drehung. Am Beamer ist es umgekehrt -- dort ist die Breite
  * die Bühne.
  */
-export function deckIn(_node: Element, { duration = 420, delay = 260 } = {}): TransitionConfig {
+const DECK_FALL_MS = 400;
+
+/**
+ * Die alte Karte kippt nach vorn und fällt unten aus dem Bild. Sie bleibt
+ * dabei fast bis zuletzt voll sichtbar -- sie soll fallen, nicht verblassen.
+ *
+ * Der Weg von 125 % der eigenen Höhe trägt sie sicher über die Unterkante
+ * hinaus, auch wenn die Karte kürzer ist als der Schirm. Abgeschnitten wird
+ * sie vom `overflow: clip` des Bühnenfelds.
+ */
+export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): TransitionConfig {
   return {
     duration,
-    delay,
-    easing: cubicOut,
+    /*
+     * Beschleunigend wie ein Fall, aber nur quadratisch: mit cubicIn haengt
+     * die Karte die halbe Zeit fast still und schiesst dann hinaus -- gemessen
+     * waren nach 52 % der Zeit erst 15 % des Wegs zurueckgelegt.
+     */
+    easing: quadIn,
     css: (t, u) => `
-      opacity: ${Math.min(1, t * 2.2)};
-      transform: perspective(1200px) rotateX(${u * -32}deg) translate3d(0, ${u * 46}px, ${u * -120}px);
+      opacity: ${t < 0.12 ? t / 0.12 : 1};
+      transform: perspective(1100px) rotateX(${u * 20}deg) translate3d(0, ${u * 125}%, 0);
       transform-origin: 50% 0%;
       backface-visibility: hidden;
     `,
   };
 }
 
-export function deckOut(_node: Element, { duration = 300 } = {}): TransitionConfig {
+/**
+ * Was darunter lag, wird freigelegt -- erst wenn die alte Karte durch ist.
+ * Deshalb kein Hereinfliegen: ein zweiter Weg würde die Illusion zerstören,
+ * dass die neue Ansicht die ganze Zeit dahinter gelegen hat.
+ */
+export function deckIn(_node: Element, { duration = 340, delay = DECK_FALL_MS - 30 } = {}): TransitionConfig {
   return {
     duration,
-    easing: cubicIn,
-    css: (t, u) => `
-      opacity: ${Math.min(1, t * 2.2)};
-      transform: perspective(1200px) rotateX(${u * 26}deg) translate3d(0, ${u * -38}px, ${u * -140}px);
-      transform-origin: 50% 100%;
-      backface-visibility: hidden;
+    delay,
+    easing: cubicOut,
+    css: (t) => `
+      opacity: ${t};
+      transform: scale(${0.955 + t * 0.045});
     `,
   };
 }

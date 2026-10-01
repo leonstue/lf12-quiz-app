@@ -12,7 +12,7 @@
     Users,
   } from '@lucide/svelte';
 
-  import type { GamePhase, TimerPreset } from '../../shared/types.js';
+  import type { GamePhase, PublicQuestion, RevealPayload, TimerPreset } from '../../shared/types.js';
   import Backdrop from '../lib/components/Backdrop.svelte';
   import AnswerOption from '../lib/components/AnswerOption.svelte';
   import Brand from '../lib/components/Brand.svelte';
@@ -107,17 +107,53 @@
   const isLastRound = $derived((room?.roundIndex ?? -1) + 1 >= (room?.totalRounds ?? 0));
 
   /**
+   * Phase der Buehne -- bewusst nicht dieselbe wie die des Raums.
+   *
+   * Eine neue Runde kommt in zwei Ereignissen herein: erst `room_state` mit
+   * der neuen Phase, dann `question_started` mit der Frage. Dazwischen passt
+   * keine der Ansichten, und genau dort sprang bisher der Bereit-Zweig ein --
+   * samt eigenem Uebergang. Darum uebernimmt die Buehne eine Phase erst, wenn
+   * auch die Daten dafuer da sind, und zeigt bis dahin weiter die alte.
+   *
+   * Die Steuerung unten und die Kopfzeile haengen weiter an der echten Phase:
+   * Die Frage laeuft serverseitig ja bereits.
+   */
+  let stagePhase = $state<GamePhase>('LOBBY');
+  let stageRound = $state(0);
+  // Die Daten der Buehne frieren mit der Phase zusammen ein. Ohne das rendert
+  // die ausgehende Ansicht noch einmal mit bereits geleerten Werten -- und
+  // landet mitten im Hinausgleiten im Bereit-Zweig.
+  let stageQuestion = $state<PublicQuestion | null>(null);
+  let stageReveal = $state<RevealPayload | null>(null);
+
+  $effect(() => {
+    const live = room?.phase;
+    if (!live) return;
+    const vollstaendig =
+      live === 'LOBBY' ||
+      live === 'LEADERBOARD' ||
+      live === 'FINISHED' ||
+      ((live === 'QUESTION' || live === 'LOCKED') && Boolean(question)) ||
+      (live === 'REVEAL' && Boolean(reveal) && Boolean(question));
+    if (vollstaendig) {
+      stagePhase = live;
+      stageRound = room?.roundIndex ?? 0;
+      stageQuestion = question;
+      stageReveal = reveal;
+    }
+  });
+
+  /**
    * Beim Sperren einer laufenden Frage soll die Ansicht stehen bleiben, beim
    * Rundenwechsel dagegen wirklich wechseln -- darum steckt die Rundennummer
    * im Schluessel und QUESTION teilt ihn sich mit LOCKED.
    */
   const stageKey = $derived.by(() => {
-    const round = room?.roundIndex ?? 0;
     if (loading) return 'loading';
-    if (phase === 'QUESTION' || phase === 'LOCKED') return `frage-${round}`;
-    if (phase === 'REVEAL') return `reveal-${round}`;
-    if (phase === 'LEADERBOARD') return `board-${round}`;
-    return phase ?? 'leer';
+    if (stagePhase === 'QUESTION' || stagePhase === 'LOCKED') return `frage-${stageRound}`;
+    if (stagePhase === 'REVEAL') return `reveal-${stageRound}`;
+    if (stagePhase === 'LEADERBOARD') return `board-${stageRound}`;
+    return stagePhase;
   });
 
   function toggleFullscreen(): void {
@@ -239,7 +275,7 @@
         <p class="muted">Der Raum <span class="mono">{code}</span> existiert nicht mehr.</p>
         <button type="button" class="btn btn-primary" onclick={() => navigate('/host')}>Neues Quiz erstellen</button>
       </section>
-    {:else if phase === 'LOBBY'}
+    {:else if stagePhase === 'LOBBY'}
       <section class="lobby">
         <div class="lobby-main">
           <p class="label-mono">Live-Quiz &middot; {room.totalRounds} Fragen</p>
@@ -286,17 +322,17 @@
           </ul>
         {/if}
       </section>
-    {:else if (phase === 'QUESTION' || phase === 'LOCKED') && question}
+    {:else if (stagePhase === 'QUESTION' || stagePhase === 'LOCKED') && stageQuestion}
       <section class="question">
         <div class="q-head">
-          <span class="label-mono">Runde {question.index + 1} / {question.total}</span>
-          <span class="label-mono">{question.category}</span>
+          <span class="label-mono">Runde {stageQuestion.index + 1} / {stageQuestion.total}</span>
+          <span class="label-mono">{stageQuestion.category}</span>
         </div>
 
-        <h1 class="q-text">{question.question}</h1>
+        <h1 class="q-text">{stageQuestion.question}</h1>
 
-        {#if question.imageUrl}
-          <QuestionImage src={question.imageUrl} alt={question.imageAlt} zoomable={false} />
+        {#if stageQuestion.imageUrl}
+          <QuestionImage src={stageQuestion.imageUrl} alt={stageQuestion.imageAlt} zoomable={false} />
         {/if}
 
         <TimerBar
@@ -305,8 +341,8 @@
           locked={phase === 'LOCKED'}
         />
 
-        <div class="q-options" class:single-column={question.answers.length <= 2}>
-          {#each question.answers as answer (answer.id)}
+        <div class="q-options" class:single-column={stageQuestion.answers.length <= 2}>
+          {#each stageQuestion.answers as answer (answer.id)}
             <AnswerOption id={answer.id} text={answer.text} disabled />
           {/each}
         </div>
@@ -317,20 +353,20 @@
           <span class="label-mono">Antworten</span>
         </p>
       </section>
-    {:else if phase === 'REVEAL' && reveal && question}
+    {:else if stagePhase === 'REVEAL' && stageReveal && stageQuestion}
       <section class="reveal">
         <div class="reveal-left">
-          <span class="label-mono">Runde {question.index + 1} / {question.total} &middot; Auflösung</span>
-          <h1 class="q-text small">{question.question}</h1>
-          {#if question.imageUrl}
+          <span class="label-mono">Runde {stageQuestion.index + 1} / {stageQuestion.total} &middot; Auflösung</span>
+          <h1 class="q-text small">{stageQuestion.question}</h1>
+          {#if stageQuestion.imageUrl}
             <div class="reveal-image">
-              <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="inline" zoomable={false} />
+              <QuestionImage src={stageQuestion.imageUrl} alt={stageQuestion.imageAlt} variant="inline" zoomable={false} />
             </div>
           {/if}
           <DistributionChart
-            distribution={reveal.distribution}
+            distribution={stageReveal.distribution}
             highlight={hostGame.revealHighlight}
-            totalAnswers={reveal.totalAnswers}
+            totalAnswers={stageReveal.totalAnswers}
           />
         </div>
 
@@ -338,15 +374,15 @@
           <div class="solution-card panel" in:revealItem={{ index: 0 }}>
             <span class="label-mono">Richtige Antwort</span>
             <div class="solution-answer">
-              <span class="solution-letter">{reveal.correctAnswer}</span>
+              <span class="solution-letter">{stageReveal.correctAnswer}</span>
               <span class="solution-text">
-                {reveal.distribution.find((entry) => entry.correct)?.text ?? ''}
+                {stageReveal.distribution.find((entry) => entry.correct)?.text ?? ''}
               </span>
             </div>
           </div>
           <div class="explain-card panel" in:revealItem={{ index: 1 }}>
             <span class="label-mono">Erklärung</span>
-            <p>{reveal.explanation}</p>
+            <p>{stageReveal.explanation}</p>
           </div>
 
           <div class="detail-card panel" in:revealItem={{ index: 2 }}>
@@ -367,7 +403,7 @@
           </div>
         </aside>
       </section>
-    {:else if phase === 'LEADERBOARD'}
+    {:else if stagePhase === 'LEADERBOARD'}
       <section class="board">
         <div class="board-head">
           <Trophy size={30} strokeWidth={2.2} />
@@ -378,7 +414,7 @@
         </div>
         <Leaderboard entries={hostGame.leaderboard} />
       </section>
-    {:else if phase === 'FINISHED'}
+    {:else if stagePhase === 'FINISHED'}
       <section class="endcard">
         <div class="end-head">
           <Trophy size={30} strokeWidth={2.2} />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Check, Flame, LogOut, Trophy, WifiOff, X } from '@lucide/svelte';
 
-  import type { AnswerId } from '../../shared/types.js';
+  import type { AnswerId, GamePhase, PersonalRoundResult, PublicQuestion } from '../../shared/types.js';
   import Backdrop from '../lib/components/Backdrop.svelte';
   import AnswerOption from '../lib/components/AnswerOption.svelte';
   import Leaderboard from '../lib/components/Leaderboard.svelte';
@@ -23,16 +23,49 @@
   const standing = $derived(playerGame.standing);
 
   /**
+   * Phase der Ansicht -- bewusst nicht dieselbe wie die des Raums.
+   *
+   * Eine neue Runde kommt in zwei Ereignissen herein: erst der Raumzustand
+   * mit der neuen Phase, dann die Frage. Dazwischen passt keine Ansicht; ohne
+   * Puffer stuende dort kurz die Frage der letzten Runde unter der neuen
+   * Rundennummer. Der Abgleich von `question.index` mit der Runde faengt
+   * genau das ab.
+   */
+  let stagePhase = $state<GamePhase>('LOBBY');
+  let stageRound = $state(0);
+  // Mit der Phase frieren auch die Daten ein -- sonst rendert die ausgehende
+  // Karte waehrend des Fallens noch einmal mit bereits geleerten Werten.
+  let stageQuestion = $state<PublicQuestion | null>(null);
+  let stagePersonal = $state<PersonalRoundResult | null>(null);
+
+  $effect(() => {
+    const live = playerGame.roomState?.phase;
+    if (!live) return;
+    const round = playerGame.roomState?.roundIndex ?? 0;
+    const vollstaendig =
+      live === 'LOBBY' ||
+      live === 'LEADERBOARD' ||
+      live === 'FINISHED' ||
+      ((live === 'QUESTION' || live === 'LOCKED') && question?.index === round) ||
+      (live === 'REVEAL' && Boolean(personal));
+    if (vollstaendig) {
+      stagePhase = live;
+      stageRound = round;
+      stageQuestion = question;
+      stagePersonal = personal;
+    }
+  });
+
+  /**
    * Schluessel fuer den Phasenwechsel. QUESTION und LOCKED teilen ihn sich --
    * beim Sperren darf die Frage nicht neu einfliegen. Die Rundennummer steckt
    * mit drin, damit die naechste Frage einen echten Wechsel ausloest.
    */
   const stageKey = $derived.by(() => {
-    const round = playerGame.roomState?.roundIndex ?? 0;
     if (restoring) return 'restoring';
-    if (phase === 'QUESTION' || phase === 'LOCKED') return `frage-${round}`;
-    if (phase === 'REVEAL') return `reveal-${round}`;
-    return phase;
+    if (stagePhase === 'QUESTION' || stagePhase === 'LOCKED') return `frage-${stageRound}`;
+    if (stagePhase === 'REVEAL') return `reveal-${stageRound}`;
+    return stagePhase;
   });
 
   function optionState(id: AnswerId): 'none' | 'correct' | 'wrong' | 'dimmed' {
@@ -100,7 +133,7 @@
         <p class="label-mono">Verbinde</p>
         <h1 class="headline big">Sitzung wird geladen …</h1>
       </section>
-    {:else if phase === 'LOBBY'}
+    {:else if stagePhase === 'LOBBY'}
       <section class="panel center-card">
         <p class="label-mono">Lobby</p>
         <h1 class="headline big">Gleich geht&rsquo;s los</h1>
@@ -119,17 +152,17 @@
         </div>
         <p class="muted small">{playerGame.roomState?.playerCount ?? 0} Teilnehmer verbunden</p>
       </section>
-    {:else if (phase === 'QUESTION' || phase === 'LOCKED') && question}
+    {:else if (stagePhase === 'QUESTION' || stagePhase === 'LOCKED') && stageQuestion}
       <section class="question-view">
         <div class="round-line">
-          <span class="label-mono">Frage {question.index + 1} / {question.total}</span>
-          <span class="label-mono">{question.category}</span>
+          <span class="label-mono">Frage {stageQuestion.index + 1} / {stageQuestion.total}</span>
+          <span class="label-mono">{stageQuestion.category}</span>
         </div>
 
-        <h1 class="question-text">{question.question}</h1>
+        <h1 class="question-text">{stageQuestion.question}</h1>
 
-        {#if question.imageUrl}
-          <QuestionImage src={question.imageUrl} alt={question.imageAlt} />
+        {#if stageQuestion.imageUrl}
+          <QuestionImage src={stageQuestion.imageUrl} alt={stageQuestion.imageAlt} />
         {/if}
 
         <TimerBar
@@ -139,15 +172,15 @@
           compact
         />
 
-        <div class="options" class:many={question.answers.length > 4}>
-          {#each question.answers as answer (answer.id)}
+        <div class="options" class:many={stageQuestion.answers.length > 4}>
+          {#each stageQuestion.answers as answer (answer.id)}
             <AnswerOption
               id={answer.id}
               text={answer.text}
               selected={selected === answer.id}
               disabled={selected !== null || phase !== 'QUESTION'}
               state={optionState(answer.id)}
-              compact={question.answers.length > 4}
+              compact={stageQuestion.answers.length > 4}
               onselect={handleSelect}
             />
           {/each}
@@ -161,11 +194,11 @@
           <p class="saved hint-only">Tippe auf deine Antwort</p>
         {/if}
       </section>
-    {:else if phase === 'REVEAL' && personal}
-      <section class="panel result" class:correct={personal.correct} class:wrong={!personal.correct}>
+    {:else if stagePhase === 'REVEAL' && stagePersonal}
+      <section class="panel result" class:correct={stagePersonal.correct} class:wrong={!stagePersonal.correct}>
         <div class="result-head">
           <span class="result-icon">
-            {#if personal.correct}
+            {#if stagePersonal.correct}
               <Check size={28} strokeWidth={3.5} />
             {:else}
               <X size={28} strokeWidth={3.5} />
@@ -173,23 +206,23 @@
           </span>
           <div>
             <p class="label-mono">Runde {(playerGame.roomState?.roundIndex ?? 0) + 1}</p>
-            <h1 class="headline big">{personal.correct ? 'Richtig' : personal.selected ? 'Leider falsch' : 'Keine Antwort'}</h1>
+            <h1 class="headline big">{stagePersonal.correct ? 'Richtig' : stagePersonal.selected ? 'Leider falsch' : 'Keine Antwort'}</h1>
           </div>
         </div>
 
         <p class="correct-line">
-          Korrekte Antwort: <strong>{personal.correctAnswer}</strong>
+          Korrekte Antwort: <strong>{stagePersonal.correctAnswer}</strong>
         </p>
 
-        {#if question?.imageUrl}
+        {#if stageQuestion?.imageUrl}
           <div class="reveal-image">
-            <QuestionImage src={question.imageUrl} alt={question.imageAlt} variant="inline" />
+            <QuestionImage src={stageQuestion.imageUrl} alt={stageQuestion.imageAlt} variant="inline" />
           </div>
         {/if}
 
-        {#if question}
+        {#if stageQuestion}
           <div class="reveal-options">
-            {#each question.answers as answer, i (answer.id)}
+            {#each stageQuestion.answers as answer, i (answer.id)}
               <div in:revealItem={{ index: i }}>
                 <AnswerOption id={answer.id} text={answer.text} disabled state={optionState(answer.id)} />
               </div>
@@ -197,32 +230,32 @@
           </div>
         {/if}
 
-        <p class="explanation">{personal.explanation}</p>
+        <p class="explanation">{stagePersonal.explanation}</p>
 
         <div class="score-grid">
           <div class="score-tile">
             <span class="label-mono">Punkte</span>
-            <strong class="tabular">+{personal.pointsAwarded.toLocaleString('de-DE')}</strong>
-            {#if personal.correct}
-              <span class="detail">{personal.basePoints} + {personal.timeBonus} Zeitbonus</span>
-              {#if personal.streakMultiplier > 1}
-                <span class="detail">x{personal.streakMultiplier.toFixed(2)} Streak</span>
+            <strong class="tabular">+{stagePersonal.pointsAwarded.toLocaleString('de-DE')}</strong>
+            {#if stagePersonal.correct}
+              <span class="detail">{stagePersonal.basePoints} + {stagePersonal.timeBonus} Zeitbonus</span>
+              {#if stagePersonal.streakMultiplier > 1}
+                <span class="detail">x{stagePersonal.streakMultiplier.toFixed(2)} Streak</span>
               {/if}
             {/if}
           </div>
           <div class="score-tile">
             <span class="label-mono">Gesamt</span>
-            <strong class="tabular">{personal.totalScore.toLocaleString('de-DE')}</strong>
-            <span class="detail">Platz {personal.rank} von {personal.playerCount}</span>
+            <strong class="tabular">{stagePersonal.totalScore.toLocaleString('de-DE')}</strong>
+            <span class="detail">Platz {stagePersonal.rank} von {stagePersonal.playerCount}</span>
           </div>
           <div class="score-tile">
             <span class="label-mono">Streak</span>
-            <strong class="tabular streak"><Flame size={18} strokeWidth={2.6} />{personal.streak}</strong>
-            <span class="detail">{personal.streak >= 2 ? 'in Folge richtig' : 'zurückgesetzt'}</span>
+            <strong class="tabular streak"><Flame size={18} strokeWidth={2.6} />{stagePersonal.streak}</strong>
+            <span class="detail">{stagePersonal.streak >= 2 ? 'in Folge richtig' : 'zurückgesetzt'}</span>
           </div>
         </div>
       </section>
-    {:else if phase === 'LEADERBOARD' || phase === 'FINISHED'}
+    {:else if stagePhase === 'LEADERBOARD' || stagePhase === 'FINISHED'}
       <section class="panel board-card">
         <div class="board-head">
           <Trophy size={22} strokeWidth={2.2} />
@@ -339,6 +372,9 @@
     display: grid;
     grid-template-columns: 1fr;
     min-height: 0;
+    /* Die fallende Karte wird hier abgeschnitten -- sonst schoebe sie die
+       Seite nach unten auf, waehrend sie den Schirm verlaesst. */
+    overflow: clip;
   }
 
   .stage-slot {
