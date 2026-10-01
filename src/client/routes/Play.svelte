@@ -110,7 +110,7 @@
 
 <Backdrop calm traffic />
 
-<div class="page" class:fixed-height={phase === 'QUESTION' || phase === 'LOCKED'}>
+<div class="page" class:fixed-height={stagePhase === 'QUESTION' || stagePhase === 'LOCKED'}>
   <header class="head">
     <div class="identity">
       <span class="label-mono">Du spielst als</span>
@@ -316,7 +316,13 @@
     height: 100dvh;
     padding-bottom: 0.85rem;
     gap: 0.5rem;
-    overflow: hidden;
+    /*
+     * Zweiter Beschnitt auf dem Weg nach draussen: Ohne Spielraum schneidet
+     * auch diese Kante die kippende Karte ab, selbst wenn das Buehnenfeld
+     * darunter schon Luft laesst.
+     */
+    overflow: clip;
+    overflow-clip-margin: 8vw;
   }
 
   .head {
