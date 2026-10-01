@@ -378,9 +378,17 @@
     display: grid;
     grid-template-columns: 1fr;
     min-height: 0;
-    /* Die fallende Karte wird hier abgeschnitten -- sonst schoebe sie die
-       Seite nach unten auf, waehrend sie den Schirm verlaesst. */
+    /*
+     * Der Beschnitt haelt die kippende Karte davon ab, die Seite aufzuschieben.
+     * Der Rand gibt ihr dabei Luft: Beim Kippen auf den Betrachter zu wird sie
+     * um rund die Haelfte breiter als ihr Feld, und ohne Spielraum schnitte die
+     * Kante sie links und rechts sauber ab -- die Karte saehe aus wie abgesaegt.
+     *
+     * Seit die Karte ihr Wachstum selbst ausgleicht (siehe deckOut), bleiben
+     * davon nur noch rund 12 px uebrig. 8vw deckt das auf jeder Breite ab.
+     */
     overflow: clip;
+    overflow-clip-margin: 8vw;
   }
 
   .stage-slot {

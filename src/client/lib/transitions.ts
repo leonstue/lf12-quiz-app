@@ -79,10 +79,11 @@ const DECK_FALL_MS = 400;
  * statt umzukippen. Sie bleibt fast bis zuletzt voll sichtbar: Sie soll
  * kippen, nicht verblassen.
  *
- * Die Perspektive ist bewusst flach (1500 px statt der sonst üblichen 900):
- * Beim Kippen auf den Betrachter zu wächst die Fläche, und mit kurzer Brenn-
- * weite schob sie sich über die Ränder -- gemessen 1158 px Höhe auf einem
- * 844 px hohen Schirm, mit seitlich abgeschnittenem Text.
+ * Zwei Dinge halten die Karte dabei im Bild. Die Perspektive ist flach
+ * (1500 px statt der sonst üblichen 900), und sie weicht beim Kippen zugleich
+ * nach hinten zurück. Ohne beides wächst die nach vorn kommende Oberkante über
+ * den Schirm hinaus: gemessen 543 px Breite auf einem 390 px breiten Gerät,
+ * also 90 px Überstand je Seite.
  */
 export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): TransitionConfig {
   return {
@@ -95,7 +96,8 @@ export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): Trans
     easing: quadIn,
     css: (t, u) => `
       opacity: ${t < 0.18 ? t / 0.18 : 1};
-      transform: perspective(1500px) rotateX(${u * -84}deg) translate3d(0, ${u * 26}%, 0);
+      transform: perspective(1500px) rotateX(${u * -84}deg) translate3d(0, ${u * 22}%, ${u * -120}px)
+        scale(${1 - u * 0.3});
       transform-origin: 50% 100%;
       backface-visibility: hidden;
     `,
