@@ -29,6 +29,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { hostGame } from '../lib/hostGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
+  import { StageGate } from '../lib/stageGate.svelte.js';
   import { flipIn, flipOut, revealItem } from '../lib/transitions.js';
 
   interface Props {
@@ -118,30 +119,39 @@
    * Die Steuerung unten und die Kopfzeile haengen weiter an der echten Phase:
    * Die Frage laeuft serverseitig ja bereits.
    */
-  let stagePhase = $state<GamePhase>('LOBBY');
-  let stageRound = $state(0);
-  // Die Daten der Buehne frieren mit der Phase zusammen ein. Ohne das rendert
-  // die ausgehende Ansicht noch einmal mit bereits geleerten Werten -- und
-  // landet mitten im Hinausgleiten im Bereit-Zweig.
-  let stageQuestion = $state<PublicQuestion | null>(null);
-  let stageReveal = $state<RevealPayload | null>(null);
+  interface Buehne {
+    phase: GamePhase;
+    round: number;
+    question: PublicQuestion | null;
+    reveal: RevealPayload | null;
+  }
+
+  const buehne = new StageGate<Buehne>({ phase: 'LOBBY', round: 0, question: null, reveal: null });
+  const stagePhase = $derived(buehne.value.phase);
+  const stageRound = $derived(buehne.value.round);
+  const stageQuestion = $derived(buehne.value.question);
+  const stageReveal = $derived(buehne.value.reveal);
 
   $effect(() => {
     const live = room?.phase;
     if (!live) return;
+    const runde = room?.roundIndex ?? 0;
+    // Die Frage muss zur Runde gehoeren, nicht bloss vorhanden sein: beim
+    // Sprung von Frage zu Frage steht die alte noch, waehrend die Rundennummer
+    // schon weitergezaehlt hat.
+    const passendeFrage = question?.index === runde;
     const vollstaendig =
       live === 'LOBBY' ||
       live === 'LEADERBOARD' ||
       live === 'FINISHED' ||
-      ((live === 'QUESTION' || live === 'LOCKED') && Boolean(question)) ||
-      (live === 'REVEAL' && Boolean(reveal) && Boolean(question));
+      ((live === 'QUESTION' || live === 'LOCKED') && passendeFrage) ||
+      (live === 'REVEAL' && Boolean(reveal) && passendeFrage);
     if (vollstaendig) {
-      stagePhase = live;
-      stageRound = room?.roundIndex ?? 0;
-      stageQuestion = question;
-      stageReveal = reveal;
+      buehne.propose({ phase: live, round: runde, question, reveal });
     }
   });
+
+  $effect(() => () => buehne.dispose());
 
   /**
    * Beim Sperren einer laufenden Frage soll die Ansicht stehen bleiben, beim

@@ -11,6 +11,7 @@
   import TimerBar from '../lib/components/TimerBar.svelte';
   import { playerGame } from '../lib/playerGame.svelte.js';
   import { navigate } from '../lib/router.svelte.js';
+  import { StageGate } from '../lib/stageGate.svelte.js';
   import { deckIn, deckOut, revealItem } from '../lib/transitions.js';
 
   let restoring = $state(true);
@@ -31,12 +32,18 @@
    * Rundennummer. Der Abgleich von `question.index` mit der Runde faengt
    * genau das ab.
    */
-  let stagePhase = $state<GamePhase>('LOBBY');
-  let stageRound = $state(0);
-  // Mit der Phase frieren auch die Daten ein -- sonst rendert die ausgehende
-  // Karte waehrend des Fallens noch einmal mit bereits geleerten Werten.
-  let stageQuestion = $state<PublicQuestion | null>(null);
-  let stagePersonal = $state<PersonalRoundResult | null>(null);
+  interface Buehne {
+    phase: GamePhase;
+    round: number;
+    question: PublicQuestion | null;
+    personal: PersonalRoundResult | null;
+  }
+
+  const buehne = new StageGate<Buehne>({ phase: 'LOBBY', round: 0, question: null, personal: null });
+  const stagePhase = $derived(buehne.value.phase);
+  const stageRound = $derived(buehne.value.round);
+  const stageQuestion = $derived(buehne.value.question);
+  const stagePersonal = $derived(buehne.value.personal);
 
   $effect(() => {
     const live = playerGame.roomState?.phase;
@@ -49,12 +56,11 @@
       ((live === 'QUESTION' || live === 'LOCKED') && question?.index === round) ||
       (live === 'REVEAL' && Boolean(personal));
     if (vollstaendig) {
-      stagePhase = live;
-      stageRound = round;
-      stageQuestion = question;
-      stagePersonal = personal;
+      buehne.propose({ phase: live, round, question, personal });
     }
   });
+
+  $effect(() => () => buehne.dispose());
 
   /**
    * Schluessel fuer den Phasenwechsel. QUESTION und LOCKED teilen ihn sich --
