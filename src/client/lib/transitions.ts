@@ -61,23 +61,28 @@ export function flipOut(_node: Element, { duration = FLIP_OUT_MS } = {}): Transi
 }
 
 /**
- * Teilnehmeransicht: die Karte wird nach hinten weggekippt und die nächste
- * kommt von unten aus dem Stapel -- eine Drehung um die Querachse.
+ * Teilnehmeransicht: die Karte kippt nach vorn weg und gibt den Blick auf die
+ * frei, die dahinter liegt -- wie ein Deckel, der nach vorn umfällt.
  *
  * Bewusst anders als der Dreher am Beamer: Auf dem Handy liegt der Schirm
- * hochkant in der Hand, da liest sich eine Bewegung nach oben natürlicher als
- * eine seitliche Drehung. Am Beamer ist es umgekehrt -- dort ist die Breite
- * die Bühne.
+ * hochkant in der Hand, da liest sich ein Kippen um die Querachse natürlicher
+ * als eine seitliche Drehung. Am Beamer ist die Breite die Bühne.
  */
 const DECK_FALL_MS = 400;
 
 /**
- * Die alte Karte kippt nach vorn und fällt unten aus dem Bild. Sie bleibt
- * dabei fast bis zuletzt voll sichtbar -- sie soll fallen, nicht verblassen.
+ * Die alte Karte klappt um ihre Unterkante nach vorn weg: Die Oberkante kommt
+ * dem Betrachter entgegen, die Fläche wird dabei immer flacher, bis nur noch
+ * die Kante zu sehen ist. Dahinter wird frei, was darunter liegt.
  *
- * Der Weg von 125 % der eigenen Höhe trägt sie sicher über die Unterkante
- * hinaus, auch wenn die Karte kürzer ist als der Schirm. Abgeschnitten wird
- * sie vom `overflow: clip` des Bühnenfelds.
+ * Drehpunkt unten statt in der Mitte -- sonst sänke die Karte als Ganzes ab,
+ * statt umzukippen. Sie bleibt fast bis zuletzt voll sichtbar: Sie soll
+ * kippen, nicht verblassen.
+ *
+ * Die Perspektive ist bewusst flach (1500 px statt der sonst üblichen 900):
+ * Beim Kippen auf den Betrachter zu wächst die Fläche, und mit kurzer Brenn-
+ * weite schob sie sich über die Ränder -- gemessen 1158 px Höhe auf einem
+ * 844 px hohen Schirm, mit seitlich abgeschnittenem Text.
  */
 export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): TransitionConfig {
   return {
@@ -89,9 +94,9 @@ export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): Trans
      */
     easing: quadIn,
     css: (t, u) => `
-      opacity: ${t < 0.12 ? t / 0.12 : 1};
-      transform: perspective(1100px) rotateX(${u * 20}deg) translate3d(0, ${u * 125}%, 0);
-      transform-origin: 50% 0%;
+      opacity: ${t < 0.18 ? t / 0.18 : 1};
+      transform: perspective(1500px) rotateX(${u * -84}deg) translate3d(0, ${u * 26}%, 0);
+      transform-origin: 50% 100%;
       backface-visibility: hidden;
     `,
   };
