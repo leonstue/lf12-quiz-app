@@ -28,13 +28,16 @@ const FLIP_IN_MS = 440;
  * Kein blur hier: Weichzeichner zwingt den Browser, die 3D-Ebene in eine
  * Textur zu rastern, und genau das frisst bei grossen Flächen die Bildrate.
  */
-export function flipIn(_node: Element, { duration = FLIP_IN_MS, delay = FLIP_OUT_MS - 60 } = {}): TransitionConfig {
+export function flipIn(_node: Element, { duration = FLIP_IN_MS, delay = FLIP_OUT_MS } = {}): TransitionConfig {
   return {
     duration,
     delay,
     easing: cubicOut,
+    // Erst sichtbar werden, waehrend die Karte sich schon aufrichtet. Blendete
+    // sie sofort auf, stuende sie neben der alten im Bild -- bei zwei Ansichten
+    // im selben Rasterfeld sieht man dann beide uebereinander.
     css: (t, u) => `
-      opacity: ${Math.min(1, t * 2.4)};
+      opacity: ${t < 0.45 ? t / 0.45 : 1};
       transform: perspective(1800px) rotateY(${u * 88}deg) translateZ(${u * -90}px) scale(${0.94 + t * 0.06});
       transform-origin: 50% 50%;
       backface-visibility: hidden;
@@ -46,8 +49,10 @@ export function flipOut(_node: Element, { duration = FLIP_OUT_MS } = {}): Transi
   return {
     duration,
     easing: cubicIn,
+    // Voll sichtbar bleiben, solange die Karte noch Flaeche zeigt, und erst
+    // auf dem letzten Stueck der Drehung verschwinden.
     css: (t, u) => `
-      opacity: ${Math.min(1, t * 2.4)};
+      opacity: ${t > 0.55 ? 1 : t / 0.55};
       transform: perspective(1800px) rotateY(${u * -88}deg) translateZ(${u * -90}px) scale(${1 - u * 0.06});
       transform-origin: 50% 50%;
       backface-visibility: hidden;
@@ -97,7 +102,7 @@ export function deckOut(_node: Element, { duration = DECK_FALL_MS } = {}): Trans
  * Deshalb kein Hereinfliegen: ein zweiter Weg würde die Illusion zerstören,
  * dass die neue Ansicht die ganze Zeit dahinter gelegen hat.
  */
-export function deckIn(_node: Element, { duration = 340, delay = DECK_FALL_MS - 30 } = {}): TransitionConfig {
+export function deckIn(_node: Element, { duration = 340, delay = DECK_FALL_MS } = {}): TransitionConfig {
   return {
     duration,
     delay,
